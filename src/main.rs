@@ -71,15 +71,15 @@ fn lemire() {
     // So m is a random number, with values that are multiples of 6:
     // 0, 6, 12, 18, 24, 30, etc.  up to 1,530
 
-    // Note that we can easily get a dice roll (though not a fair one) from m by dividing it by 255
+    // Note that we can easily get a dice roll (though not a fair one) from m by dividing it by 256
     for _n in 0..10 {
         let seed = rand::random::<u8>(); // get a random number from 0..=255
         let m: usize = seed as usize * 6; // Note that the maximum value of m is 255 * 6 or 1,530
-        let example_roll = m / 255;
-        println!("Example roll using m and division: {}", example_roll);
+        let example_roll = m / 256;
+        // println!("Example roll using m and division: {}", example_roll);
     }
 
-    // apparently thanks to the nature of u8 integers, dividing by 255 can also be done be using a
+    // apparently thanks to the nature of u8 integers, dividing by 256 can also be done be using a
     // "bit shift" of 8.
     // In Rust, this is represented by m >> 8
 
@@ -87,10 +87,27 @@ fn lemire() {
         let seed = rand::random::<u8>(); // get a random number from 0..=255
         let m: usize = seed as usize * 6; // Note that the maximum value of m is 255 * 6 or 1,530
         let example_roll = m >> 8;
-        println!("Example roll using m and a bit shift: {}", example_roll);
+        println!(
+            "Using seed {} and an m of {}, an example roll using a bit shift: {}",
+            seed, m, example_roll
+        );
+        assert_eq!(m >> 8, m / 256);
     }
 
-    // But either way we slice m, it's still unfair in the same way our initial roll function is
+    // But either way we slice m, it's still unfair in a similar way that our initial roll function is
     // unfair.
     //
+    // For seeds from 0 to 42 (43 seed values), we get a dice roll of 0
+    assert_eq!((42 * 6) >> 8, 0);
+    // For seeds from 43 to 85 (43 seed values), we get a dice roll of 1
+    assert_eq!((43 * 6) >> 8, 1);
+    assert_eq!((85 * 6) >> 8, 1);
+    // For seeds from 86 to 127 (42 seed values), we get a dice roll of 2
+    assert_eq!((86 * 6) >> 8, 2);
+    assert_eq!((127 * 6) >> 8, 2);
+    // For seeds from 128 to 170 (43), we get a dice roll of 3
+    assert_eq!((128 * 6) >> 8, 3);
+    assert_eq!((170 * 6) >> 8, 3);
+    // For seeds from 171 to 213 (43), we get a dice roll of 4
+    // For seeds from 214 to 255 (42), we get a dice roll of 5
 }
