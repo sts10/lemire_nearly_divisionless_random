@@ -7,7 +7,9 @@ fn main() {
 
     // learning_about_simplest_dice_roll();
     // rejection_fix();
-    lemire();
+    // lemire_unfair();
+    // println!("Lemiere slow give: {}", lemire_slow());
+    println!("Lemiere slow give: {}", lemire_slow_test2(39));
 }
 
 fn roll(seed: u8) -> u8 {
@@ -61,7 +63,7 @@ fn rejection_fix() {
     // which isn't ideal for efficiency.
 }
 
-fn lemire() {
+fn lemire_unfair() {
     let seed = rand::random::<u8>(); // get a random number from 0..=255
 
     // Kind of blidnly trusting the explanation of Lemire's algorithm,
@@ -110,4 +112,33 @@ fn lemire() {
     assert_eq!((170 * 6) >> 8, 3);
     // For seeds from 171 to 213 (43), we get a dice roll of 4
     // For seeds from 214 to 255 (42), we get a dice roll of 5
+}
+
+fn lemire_slow() -> usize {
+    loop {
+        let seed = rand::random::<u8>(); // get a random number from 0..=255
+        let m: usize = seed as usize * 6; // Note that the maximum value of m is 255 * 6 or 1,530
+        let l = m % 8;
+        if l < (8 % 6) {
+            return m >> 8;
+        }
+    }
+}
+
+fn lemire_slow_test(seed: u8) -> usize {
+    loop {
+        // let seed = rand::random::<u8>(); // get a random number from 0..=255
+        let m: usize = seed as usize * 6; // Note that the maximum value of m is 255 * 6 or 1,530
+        let l = m % 8;
+        if l < (8 % 6) {
+            return m >> 8;
+        }
+    }
+    // In my testing I found a bad distribution:
+    // Seeds of 0 to 40 (41 seeds) gives you 0
+    // 44 to 84 (41 seeds) gives you 1
+    // 88 to 124 (37 seeds) gives you 2
+    // 128 to 168 (41 seeds) gives you 3
+    // 172 to 212 (41 seeds) gives you 4
+    // 216 to 244 (29 seeds) gives you 5
 }
