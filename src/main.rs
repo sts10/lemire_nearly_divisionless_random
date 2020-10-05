@@ -11,14 +11,16 @@ fn main() {
     // learning_about_simplest_dice_roll();
     // rejection_fix();
     // lemire_unfair();
-    // println!("Lemiere slow give: {}", lemire_slow());
-    // let seed_to_test = 39;
-    for seed_to_test in 0..=255 {
-        println!(
-            "Lemiere slow for {} gives: {:?}",
-            seed_to_test,
-            lemire_slow_test(seed_to_test)
-        );
+    let random_dice_roll: usize;
+    loop {
+        let seed = rand::random::<u8>(); // get a random number from 0..=255
+        match lemire_slow(seed) {
+            Some(r) => {
+                random_dice_roll = r;
+                break;
+            }
+            None => continue,
+        }
     }
 }
 
@@ -124,40 +126,22 @@ fn lemire_unfair() {
     // For seeds from 214 to 255 (42), we get a dice roll of 5
 }
 
-fn lemire_slow() -> usize {
-    loop {
-        let seed = rand::random::<u8>(); // get a random number from 0..=255
-        let m: usize = seed as usize * 6; // Note that the maximum value of m is 255 * 6 or 1,530
-        let l = m % 8;
-        if l < (8 % 6) {
-            return m >> 8;
-        }
-    }
-}
-
-fn lemire_slow_test(seed: u8) -> Option<usize> {
+fn lemire_slow(seed: u8) -> Option<usize> {
     // loop {
     // let seed = rand::random::<u8>(); // get a random number from 0..=255
     let m: usize = seed as usize * 6; // Note that the maximum value of m is 255 * 6 or 1,530
     let l = m % 256;
-    println!("m is {}; l in {}", m, l);
-    if l > (256 % 6) {
+    if l >= (256 % 6) {
         return Some(m >> 8);
     } else {
         None
     }
-    // Seeds 1 to 42    give dice 0 (42)
-    // Seeds 44 to 85   give dice 1 (42)
-    // Seeds 87 to 127  give dice 2 (41)
-    // Seeds 129 to 170 give dice 3 (42)
-    // Seeds 172 to 213 give dice 4 (42)
-    // Seeds 215 to 255 give dice 5 (41)
 }
 
 // fn lemire_medium_test(seed: u8) -> usize {
 //     let m: usize = seed as usize * 6; // Note that the maximum value of m is 255 * 6 or 1,530
-//     let l = m % 8;
-//     if l < 6 {
+//     let l = m % 256;
+//     if l <= 6 {
 //         let floor = 8 % 6;
 
 //         return m >> 8;
@@ -176,7 +160,7 @@ mod tests {
         let lower = 0;
         let upper = 255;
         for this_seed in lower..=upper {
-            match lemire_slow_test(this_seed) {
+            match lemire_slow(this_seed) {
                 Some(result) => all_results.push(result),
                 None => continue,
             }
@@ -201,6 +185,7 @@ mod tests {
                 return false;
             }
         }
+        println!("Returning true\n{:?}", count_vec);
         true
     }
 
