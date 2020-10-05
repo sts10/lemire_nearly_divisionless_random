@@ -21,6 +21,7 @@ fn main() {
     //     roll_using_lemire_slow(6);
     // }
 
+    // real 4.603
     for _n in 1..1_000_000_000 {
         roll_using_lemire_medium(6);
     }
@@ -53,16 +54,20 @@ fn lemire_slow(seed: u8, s: usize) -> Option<usize> {
     }
 }
 
-fn roll_using_lemire_medium(s: u8) -> u16 {
-    loop {
-        let seed = rand::random::<u8>(); // get a random number from 0..=255
-        let rand_range_length: u16 = 256;
-        let m: u16 = seed as u16 * s as u16; // Note that the maximum value of m is 255 * 6 or 1,530
-        let l = m % rand_range_length;
-        if l >= (rand_range_length % s as u16) {
-            return m >> 8;
+fn roll_using_lemire_medium(s: u16) -> u16 {
+    let rand_range_length: u16 = 256;
+    let seed = rand::random::<u16>(); // get a random number from 0..=255
+    let m: u16 = seed * s; // Note that the maximum value of m is 255 * 6 or 1,530
+    let mut l = m % rand_range_length;
+    if l < s {
+        let floor = 8 % s;
+        while l < floor {
+            let seed = rand::random::<u16>(); // get a random number from 0..=255
+            let m: u16 = seed as u16 * s as u16; // Note that the maximum value of m is 255 * 6 or 1,530
+            l = m % rand_range_length;
         }
     }
+    m >> 3
 }
 
 #[cfg(test)]
