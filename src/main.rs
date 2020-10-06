@@ -11,7 +11,7 @@ extern crate rand;
 use rand::prelude::*;
 
 fn main() {
-    // real	4.501s
+    // real	4.552s
     // for _n in 1..1_000_000_000 {
     //     roll_using_gen_range(6);
     // }
@@ -21,9 +21,14 @@ fn main() {
     //     roll_using_lemire_slow(6);
     // }
 
-    // real 4.603
+    // real 4.912
+    // for _n in 1..1_000_000_000 {
+    //     roll_using_lemire_medium(6);
+    // }
+
+    // real 4.859s
     for _n in 1..1_000_000_000 {
-        roll_using_lemire_medium(6);
+        roll_using_lemire_fast(6);
     }
     println!("Done");
 }
@@ -54,17 +59,33 @@ fn lemire_slow(seed: u8, s: usize) -> Option<usize> {
     }
 }
 
-fn roll_using_lemire_medium(s: u16) -> u16 {
-    let rand_range_length: u16 = 256;
-    let seed = rand::random::<u16>(); // get a random number from 0..=255
-    let m: u16 = seed * s; // Note that the maximum value of m is 255 * 6 or 1,530
-    let mut l = m % rand_range_length;
-    if l < s {
-        let floor = 8 % s;
-        while l < floor {
-            let seed = rand::random::<u16>(); // get a random number from 0..=255
+fn roll_using_lemire_medium(s: u8) -> u16 {
+    let rand_range_length: u16 = 256; // could use `u8::MAX + 1` here, but can't imagine much of a difference?
+
+    let seed = rand::random::<u8>(); // get a random number from 0..=255
+    let m: u16 = seed as u16 * s as u16; // maximum value of m is 255 * s (if s == 6, then max of m is 1,530)
+    let mut l = m % rand_range_length; // this operation is done differently in the C example
+    if l < s as u16 {
+        let floor: u8 = (u8::MAX - s + 1) % s;
+        while l < floor as u16 {
+            let seed = rand::random::<u8>(); // get a random number from 0..=255
             let m: u16 = seed as u16 * s as u16; // Note that the maximum value of m is 255 * 6 or 1,530
             l = m % rand_range_length;
+        }
+    }
+    m >> 3
+}
+
+fn roll_using_lemire_fast(s: u8) -> u16 {
+    let seed = rand::random::<u8>(); // get a random number from 0..=255
+    let m: u16 = seed as u16 * s as u16; // maximum value of m is 255 * s (if s == 6, then max of m is 1,530)
+    let mut l: u8 = m as u8; // this is a faster alternative to let l = m % 256 (see: https://doc.rust-lang.org/rust-by-example/types/cast.html)
+    if l < s {
+        let floor: u8 = (u8::MAX - s + 1) % s;
+        while l < floor {
+            let seed = rand::random::<u8>(); // get a random number from 0..=255
+            let m: u16 = seed as u16 * s as u16; // Note that the maximum value of m is 255 * 6 or 1,530
+            l = m as u8;
         }
     }
     m >> 3
