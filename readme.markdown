@@ -1,6 +1,10 @@
 # An implementation of Lemire's nearly divisionless random in Rust
 
-TL;DR I tried to implement [Lemire's nearly divisionless random](https://lemire.me/blog/2019/06/06/nearly-divisionless-random-integer-generation-on-various-systems/) in Rust. Currently it's limited to 8-bit integers. Disclaimer: Not a cryptographer or even a programmer by trade. See `src/lib.rs`.
+TL;DR I tried to implement [Lemire's nearly divisionless random](https://lemire.me/blog/2019/06/06/nearly-divisionless-random-integer-generation-on-various-systems/) in Rust. Currently it's limited to 8-bit integers. 
+
+Disclaimer: Not a cryptographer or even a programmer by trade. 
+
+---
 
 # My notes on understanding Lemire's algorithm
 
@@ -320,9 +324,6 @@ fn roll_using_lemire_medium(seed: u8, s: u8) -> u16 {
 
 And finally here's my "fast" Lemire, where I decided to end my journey for now. 
 
-Here is the first time I replaced the apparently slow `let l = m % 256;` with `let l: u8 = m as u8;`, which is apparently another one of those math/comp sci shortcut tricks. [MacCárthaigh explains it pretty well in the comment](https://github.com/colmmacc/s2n/blob/7ad9240c8b9ade0cc3a403a732ba9f1289934abd/utils/s2n_random.c#L336-L358). 
-
-Helpfully for my Rust implementation, this same trick is explained in a comment in [the Rust by Example page on casting](https://doc.rust-lang.org/rust-by-example/types/cast.html).
 
 ```rust
 fn roll_using_lemire_fast(s: u8) -> u16 {
@@ -340,6 +341,31 @@ fn roll_using_lemire_fast(s: u8) -> u16 {
     m >> 8
 }
 ```
+
+### Notes on Fast Lemire function and its two weird shortcuts
+
+As the name of the function implies, this is where I did my best to implement any and all speed shortcuts described by Lemire and MacCárthaigh.
+
+First, you'll notice I replaced the apparently slow `let l = m % 256;` with `let l: u8 = m as u8;`, which is apparently another one of those math/comp sci shortcut tricks. [MacCárthaigh explains it pretty well in the comment](https://github.com/colmmacc/s2n/blob/7ad9240c8b9ade0cc3a403a732ba9f1289934abd/utils/s2n_random.c#L336-L358), where the finished code is the even more cryptic `uint3_t l = (uint3_t) m;`.
+
+Helpfully for my Rust implementation, this same trick is explained in a comment in [the Rust by Example page on casting](https://doc.rust-lang.org/rust-by-example/types/cast.html).
+
+I also used `let floor: u8 = (u8::MAX - s + 1) % s;` where Lemire uses `uint64_t t = -s % s;`. MacCárthaigh [explains also this shortcut in his comment](https://github.com/colmmacc/s2n/blob/7ad9240c8b9ade0cc3a403a732ba9f1289934abd/utils/s2n_random.c#L393-L423). I got the Rust implementation with help from another Mastodon friend and a little luck.
+
+And I proved it to myself this way:
+
+```rust
+fn main() {
+    for s in 1..=7 as u8 { // doesn't work for 0 but think we're OK with that
+        let slow_calc = 256 % s as u16;
+        let fast_calc = (u8::MAX - s + 1) % s;
+
+        assert_eq!(slow_calc as u8, fast_calc);
+    }
+}
+```
+
+I should probably run a benchmark to see if it matters. 
 
 ## Writing benchmark tests using the Criterion crate: 
 
