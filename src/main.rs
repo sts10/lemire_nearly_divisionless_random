@@ -1,3 +1,7 @@
+use lemire::roll_using_readable_lemire;
+
 fn main() {
-    println!("Try running `cargo bench`");
+    for _n in 0..150 {
+        println!("rolled a {}", roll_using_readable_lemire(6));
+    }
 }

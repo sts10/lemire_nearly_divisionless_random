@@ -195,6 +195,39 @@ In his example, x is what I'm calling the seed, s is 3 (for me it's 6 for sides 
 
 I'm not really sure how to explain this further so I'm going to move on!
 
+## Using a floor rather than a ceiling
+
+One thing (a) I can get my head around and (b) will be helpful later is the idea that we could use a "floor" rather than a "ceiling" here. In other words, instead of rejecting seeds of 252, 253, 254, and 255; we could instead reject seeds of 0, 1, 2, and 3. 
+
+To calculate that `3` floor, let's do `let floor = 255 % 6`. 
+
+So all together it'd look like: 
+
+```rust
+fn rejection_method() -> u8 {
+    // Another solution to this problem is to call a "do over" if the seed is too low, in this case 0, 1, 2 or 3
+    let floor = 255 % 6;
+    assert_eq!(floor, 3);
+    // Now we can do ...
+    loop {
+        let seed = rand::random::<u8>(); // get a random number from 0..=255
+        // compare this seed to our floor
+        if seed > floor {
+            // Got a good seed, so we'll make it a dice roll and return it
+            return seed % 6;
+        } else {
+            // Got a bad seed (too LOW)!
+            // Return to the top of this loop to get a new seed
+            continue;
+        }
+    }
+}
+```
+
+You can test this function for equal distribution [with this rust Playground](https://play.rust-lang.org/?version=stable&mode=debug&edition=2018&gist=c2863ec2f3859fed16cb4a8e2855e17d).
+
+(I'm not sure if this is the correct way to calculate `floor` for all possible dice...)
+
 ## Our first attempt at Lemire's algorithm
 
 Alright, at this point MacCárthaigh deems us ready for the new stuff. In [the next section](https://github.com/colmmacc/s2n/blob/7ad9240c8b9ade0cc3a403a732ba9f1289934abd/utils/s2n_random.c#L259-L311) he introduces Lemire's algorithm, but he describes an **unfair** version of it. It's unfair in a way that's similar to our first dice implementation, but a little different. Let's explore!
@@ -417,6 +450,65 @@ Found 2 outliers among 100 measurements (2.00%)
 rand 6                  time:   [8.1261 ns 8.1815 ns 8.2392 ns]                    
 Found 3 outliers among 100 measurements (3.00%)
   3 (3.00%) high mild
+```
+
+## What about readability? 
+
+MacCárthaigh original challenge was to make the algorithm more _readable_. 
+
+In thinking about how I might make a more readable implementation, I returned to the structure I used for my first fair (but slow) implementation of Lemire above, which was broken into two functions.
+
+I like two things about splitting it into two functions, an outer and an inner. First, it shows what we might call the "seed rejection" logic clearly: The outer function has the only loop, in which it passes a possible seed to an inner function. 
+
+Having this inner function return a Rust `Option` seems like a nice choice for readability here: It can return `Some` result or `None`, which maps nicely to "a good
+
+```rust
+// Going to attempt to break up Lemire's into 4 or 5 functions for improved readability
+#[inline]
+pub fn roll_using_readable_lemire(s: u8) -> u16 {
+    loop {
+        let seed = rand::random::<u8>(); // get a random number from 0..=255
+        match lemire_from_seed(seed, s) {
+            // if we get a result, that means we got a good seed and thus we got a roll
+            Some(roll_result) => return roll_result,
+            // got a bad seed and thus no roll.
+            // try loop again
+            None => continue,
+        };
+    }
+}
+
+fn lemire_from_seed(seed: u8, s: u8) -> Option<u16> {
+    let m: u16 = seed as u16 * s as u16; // maximum value of m is 255 * s (if s == 6, then max of m is 1,530)
+    let l: u8 = modulo_256(m); // this is a faster alternative to let l = m % 256 (see: https://doc.rust-lang.org/rust-by-example/types/cast.html)
+    if l >= s {
+        let roll_result = divide_by_256(m);
+        return Some(roll_result);
+    }
+    let floor: u8 = eight_modulo(s);
+    if l < floor {
+        return None;
+    } else {
+        let roll_result = divide_by_256(m);
+        return Some(roll_result);
+    }
+}
+
+// comp sci shortcuts
+// https://github.com/colmmacc/s2n/blob/7ad9240c8b9ade0cc3a403a732ba9f1289934abd/utils/s2n_random.c#L323-L358
+fn modulo_256(m: u16) -> u8 {
+    m as u8
+}
+
+// https://github.com/colmmacc/s2n/blob/7ad9240c8b9ade0cc3a403a732ba9f1289934abd/utils/s2n_random.c#L393-L423
+fn eight_modulo(s: u8) -> u8 {
+    (u8::MAX - s + 1) % s
+}
+
+// https://github.com/colmmacc/s2n/blob/7ad9240c8b9ade0cc3a403a732ba9f1289934abd/utils/s2n_random.c#L291-L311
+fn divide_by_256(m: u16) -> u16 {
+    m >> 8
+}
 ```
 
 ## Further work to do
