@@ -1,6 +1,6 @@
 # An implementation of Lemire's nearly divisionless random in Rust
 
-TL;DR I tried to implement [Lemire's nearly divisionless random](https://lemire.me/blog/2019/06/06/nearly-divisionless-random-integer-generation-on-various-systems/) in Rust. Currently it's limited to 8-bit integers. 
+TL;DR As a learning experience, I tried write my own implementation of [Lemire's nearly divisionless random](https://lemire.me/blog/2019/06/06/nearly-divisionless-random-integer-generation-on-various-systems/) in Rust. Currently it's limited to 8-bit integers. 
 
 Disclaimer: Not a cryptographer or even a programmer by trade. 
 
@@ -62,6 +62,10 @@ As MacCárthaigh notes in his post, he used the contestants' answers to write hi
 I read MacCárthaigh comment through at least three times, picking up the tiniest bit of new knowledge each time. I got frustrated when it was immediately clear to me what was happening and I got up and did other things. I cursed my curiosity, my lack of CS knowledge... cursed how I understood _just a little bit_ of it. With my attitude settled, I went slow and took each section of the comment in turn.
 
 I also started throwing some Rust code in a playground, figuring I'd attempt an example of rolling a single 6-sided die as a way to learn.
+
+## A note about Lemire and Rust
+
+Pretty late into this little project of mine I learned that the main Rust library for generating random number, [Rand](https://github.com/rust-random/rand), apparently [took at least some ideas from Lemire back in 2018 for version 0.5.0](https://www.reddit.com/r/rust/comments/8l95zk/rand_050_released/). So it's not like I'm doing anything novel by implementing this algorithm in Rust. And in fact my ability to read Rust code isn't good enough to find where Lemire's work is used in the library. 
 
 ## Part 1: Unfair dice
 
@@ -367,9 +371,9 @@ fn main() {
 
 I should probably run a benchmark to see if it matters. 
 
-## Writing benchmark tests using the Criterion crate: 
+## Writing benchmark tests using the Criterion crate
 
-So is my beautifully named `roll_using_lemire_fast` function faster than what we'd use with the rand crate? Boy I hoped so! 
+Just for fun, I wanted to benchmark my beautifully named `roll_using_lemire_fast` function. Benchmarking against [Rust's Rand library](https://github.com/rust-random/rand) seemed a good choice, though I later learned that [that library already uses some of Lemire's work](https://www.reddit.com/r/rust/comments/8l95zk/rand_050_released/). But I pressed on.
 
 To find out, I decided to learn a little about benchmarking Rust code, something I'd never _formally_ done before. After a few search quieries, I decided to use a crate called [Criterion](https://github.com/bheisler/criterion.rs).
 
@@ -401,9 +405,7 @@ pub fn roll_using_gen_range(dice_size: u8) -> u8 {
 }
 ```
 
-And would you believe it, in my initial results my Lemire function apparently beats `roll_using_gen_range` by a few nanoseconds.
-
-Initial Criterion benchmark results: Lemire benchmarks a few nanoseconds faster!
+Criterion showed my Lemire function beating `roll_using_gen_range` by a few nanoseconds. But since my assumption is that Rand's `gen_range` uses Lemire too, my guess is that the only reason my Lemire is faster is because Rand and `gen_range` are more versatile and complex.
 
 ```text
 lemire fast 6           time:   [5.8207 ns 5.8747 ns 5.9328 ns]                           
@@ -419,13 +421,11 @@ Found 3 outliers among 100 measurements (3.00%)
 
 ## Further work to do
 
-First I should probably verify that my hastily written roll_using_gen_range function is a fair representation of the rand crate's speed.
-
-Next I probably need to double check everything. I'd like to figure out how to write a test to confirm that `roll_using_lemire_fast` is fair. (Maybe a Chi-squared test?)
+First, I probably need to double check everything. I'd like to figure out how to write a test to confirm that `roll_using_lemire_fast` is fair. (Maybe a Chi-squared test?)
 
 And obviously my function can only generate random numbers over a max range of 256. Lemire's original example code takes a 64-bit integer for its `s`, which makes the function much more practical and versatile. This requires an `m` of 128 bits, which I'll have to check if Rust can handle? Alternatively I could settle for a 32-bit `s`.
 
-And lastly, it'd be interesting to implement a slightly more robust API, mirroring methods that the rand crate offers for example.
+And lastly, returning to MacCárthaigh's original call for readability, I'd love to re-write my Lemire function to be more readable, even at the expensive of speed.
 
 ## Appendix: More sample code
 
