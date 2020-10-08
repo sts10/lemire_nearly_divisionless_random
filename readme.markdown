@@ -2,7 +2,7 @@
 
 TL;DR As a learning experience, I tried write my own implementation of [Lemire's nearly divisionless random](https://lemire.me/blog/2019/06/06/nearly-divisionless-random-integer-generation-on-various-systems/) in Rust. Currently it's limited to 8-bit integers. 
 
-Disclaimer: I am not a cryptographer or even a professional developer.
+**Do NOT use this code for production!** It's a learning tool, written by an amateur programmer.
 
 ---
 
@@ -65,7 +65,7 @@ I also started throwing some Rust code in a playground, figuring I'd attempt an 
 
 ## A note about Lemire and Rust
 
-Pretty late into this little project of mine I learned that the main Rust library for generating random number, [Rand](https://github.com/rust-random/rand), apparently took at least some ideas from Lemire back in 2018 for version 0.5.0, [according to this post on the r/rust subreddit](https://www.reddit.com/r/rust/comments/8l95zk/rand_050_released/). However, the Reddit post is from May 2018 and links to [this Lemire post from 2016](https://lemire.me/blog/2016/06/27/a-fast-alternative-to-the-modulo-reduction/)), so it's unclear if the Rand crate has adapted the particular divisionless random algorithm I'm trying to implement here, as opposed to an earlier idea about randomized from Lemire. 
+Pretty late into this little project of mine I learned that the main Rust library for generating random number, [Rand](https://github.com/rust-random/rand), apparently took at least some ideas from Lemire back in 2018 for version 0.5.0, [according to this post on the r/rust subreddit](https://www.reddit.com/r/rust/comments/8l95zk/rand_050_released/). However, the Reddit post is from May 2018 and links to [this Lemire post from 2016](https://lemire.me/blog/2016/06/27/a-fast-alternative-to-the-modulo-reduction/)), so it's unclear if the Rand crate has adapted the particular nearly divisionless random algorithm I'm trying to implement here, as opposed to an earlier idea about randomized from Lemire. 
 
 Tellingly and embarrassingly, my ability to read Rust code isn't good enough to find where Lemire's work is used in the library, so it's difficult for me to verify this on my own. Any schooling welcome!
 
@@ -132,7 +132,7 @@ Now we're on to what I'm called [the second section of MacCárthaigh's code comm
 Basically, one way to make this unfair die a fair die is to reject seeds of 252, 253, 254, and 255. That way, 0, 1, 2, 3, 4, and 5 all have an equal chance of being returned.
 
 ```rust
-fn rejection_method() -> u8 {
+fn traditional_rejection_method() -> u8 {
     // One solution to this problem is to call a "do over" if the seed
     // is 252, 253, 254, or 255
 
@@ -210,7 +210,7 @@ To calculate that `3` to define floor, let's do `let floor = 255 % 6`.
 So all together it'd look like: 
 
 ```rust
-fn rejection_method() -> u8 {
+fn traditional_rejection_method_using_floor() -> u8 {
     // Another solution to this problem is to call a "do over" if the seed is too low, in this case 0, 1, 2 or 3
     let floor = 255 % 6;
     assert_eq!(floor, 3);
@@ -291,17 +291,17 @@ fn lemire_unfair() {
 
 I don't _quite_ understand why this code over-returns 0, 1, 3 and 4 and under-returns 2 and 5. I'm guessing it's due to how the fractions and rounding works out? 
 
-### A trick to calculating m
+### A trick to calculating m a bit faster
 
-Remember: Lemire's divisionless random is all about speed. So there's a few times where he uses some computer science tricks to speed things up. For example, apparently thanks to the nature of u8 integers, dividing a number by 256 can also be done be using a "bit shift" to the right by 8.
+Remember: Lemire's nearly divisionless random is all about speed. So there's a few times where he uses some computer science tricks to speed things up. For example, apparently thanks to the nature of u8 integers, dividing a number by 256 can also be done be using a "bit shift" to the right by 8.
 
-In Rust, [a right shift is represented with >>](https://doc.rust-lang.org/book/appendix-02-operators.html), so right-shifting `m` by 8 `m >> 8`. We can pretty easily check this ourselves for all possible `u8` values by running the following:
+In Rust, [a right shift is represented with >>](https://doc.rust-lang.org/book/appendix-02-operators.html), so right-shifting `m` by 8 `m >> 8`. We can pretty easily check this ourselves for all possible `u16` values by running the following:
 
 ```rust
-for _n in 0..=255 {
-    let seed = rand::random::<u8>(); // get a random number from 0..=255
-    let m: usize = seed as usize * 6; // Note that the maximum value of m is 255 * 6 or 1,530
-    assert_eq!(m >> 8, m / 256);
+for possible_m in 0..=u16::MAX {
+    let traditional_method = possible_m / 256;
+    let shortcut_method = possible_m >> 8;
+    assert_eq!(traditional_method, shortcut_method);
 }
 ```
 
@@ -437,7 +437,9 @@ But I still don't _quite_ understand how it works, or it actually speeds things 
 
 ## Writing benchmark tests using the Criterion crate
 
-Just for fun, I wanted to benchmark my beautifully named `roll_using_lemire_fast` function. Benchmarking against [Rust's Rand library](https://github.com/rust-random/rand) seemed a good choice, though, as noted above, it's unclear to me if the Rand crate already incorporates some of Lemire's ideas.
+Time for the true test: Seeing if my beautifully named `roll_using_lemire_fast` function was fast. 
+
+To test it, I figured I'd benchmark it against (a) that "traditional" rejection method we described above and (b) [Rust's Rand library](https://github.com/rust-random/rand). (Though, as noted above, it's unclear to me if the Rand crate already incorporates some of Lemire's ideas.)
 
 First, I had to learn a little about benchmarking Rust code, something I'd never _formally_ done before. After a few search quieries, I decided to use a crate called [Criterion](https://github.com/bheisler/criterion.rs).
 
@@ -447,20 +449,28 @@ Not gonna lie, did a lot of copy and pasting from [its Getting Started page](htt
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use lemire::roll_using_gen_range;
 use lemire::roll_using_lemire_fast;
+use lemire::roll_using_tradional_rejection_method;
 
 pub fn criterion_benchmark(c: &mut Criterion) {
-    c.bench_function("lemire fast 6", |b| {
+    c.bench_function("'lemire fast', s = 6", |b| {
         b.iter(|| roll_using_lemire_fast(black_box(6)))
     });
 
-    c.bench_function("rand 6", |b| b.iter(|| roll_using_gen_range(black_box(6))));
+    c.bench_function("Traditional rejection method, s=6", |b| {
+        b.iter(|| roll_using_tradional_rejection_method(black_box(6)))
+    });
+
+    c.bench_function("Rand crate, s = 6", |b| {
+        b.iter(|| roll_using_gen_range(black_box(6)))
+    });
+
 }
 
 criterion_group!(benches, criterion_benchmark);
 criterion_main!(benches);
 ```
 
-And then I hastily wrote this in `lib.rs` as a representative of the Rand crate's functionality:
+I then hastily wrote this in `lib.rs` as a representative of the Rand crate's functionality:
 
 ```rust
 pub fn roll_using_gen_range(dice_size: u8) -> u8 {
@@ -472,14 +482,17 @@ pub fn roll_using_gen_range(dice_size: u8) -> u8 {
 Criterion showed my Lemire function beating `roll_using_gen_range` by a few nanoseconds. But since my assumption is that Rand's `gen_range` uses Lemire too, my guess is that the only reason my Lemire is faster is because Rand and `gen_range` are more versatile and complex?
 
 ```text
-lemire fast 6           time:   [5.8207 ns 5.8747 ns 5.9328 ns]                           
-Found 2 outliers among 100 measurements (2.00%)
-  2 (2.00%) high mild
+'lemire fast', s = 6    time:   [5.3661 ns 5.4143 ns 5.4674 ns]                                  
 
-rand 6                  time:   [8.1261 ns 8.1815 ns 8.2392 ns]                    
-Found 3 outliers among 100 measurements (3.00%)
-  3 (3.00%) high mild
+Rand crate, s = 6       time:   [8.2325 ns 8.2931 ns 8.3596 ns]                               
+
+Traditional rejection method, s=6                        
+                        time:   [6.2933 ns 6.3352 ns 6.3809 ns]
 ```
+
+I was really glad to see "Lemire fast" was the fastest, beating the traditional rejection method by about a nanosecond. All that work paid off!
+
+Slowest was my function using the Rand crate's `gen_range` method, which is either because it uses a slower algorithm or the method is much more versatile and complex, and thus a little slower.
 
 ## What about readability? 
 
@@ -555,17 +568,17 @@ And I was able to break out each of the three "tricks" MacCárthaigh describes i
 
 I think it came out OK! 
 
-As you might guess, this version is a bit slower than the more compact `roll_using_lemire_fast`: Criterion informs that the readable version runs in 8.480 nanoseconds compared to 5.644 nanoseconds. But again, I'm not writing for speed at this point.
+As you might guess, this version is a bit slower than the more compact `roll_using_lemire_fast`, and it's evedn slower than the traditional rejection method described above: In a fresh benchmark, the readable version runs in 8.480 nanoseconds compared to the more compact version's 5.644 nanoseconds and the traditional method's 6.344 nanoseconds. But again, I'm not writing for speed at this point.
 
 ## So do I understand it now?
 
-Honestly, no. I mean, a lot more than I did when I started. But as I write this I still don't quite understand how the `m` and `l` variables work or really what `l` represents even. But it's a process! (I think I need to read Lemire's writing.) Maybe some of this will help give others a small foothold on their path to understanding!
+Honestly, I'd say no. I mean, a lot more than I did when I started. But as I write this I still don't feel like I could explain it to, say, a developer. But it's a process! (I think it would help to read Lemire's writing more.) But maybe some of this will help give others a small foothold on their path to understanding!
 
 ## Further work to do
 
-First, I probably need to double-check everything. Adding more tests of all the functions in `src/lib.rs` would be nice. For example, I'd like to figure out how to write a test to confirm that `roll_using_lemire_fast` is fair. (Maybe a Chi-squared test?)
+First, I probably need to double-check everything. Adding more tests of all the functions in `src/lib.rs` would be nice. For example, I'd like to figure out how to write a test to confirm that `roll_using_lemire_fast` is fair (currently all the tests only check the readable version). Maybe a Chi-squared test?
 
-And obviously my function(s) can only generate random numbers over a max range of 256. Lemire's original example code takes a 64-bit integer for its `s`, which makes the function much more practical and versatile. This requires an `m` of 128 bits, which I'll have to check if Rust can handle? Alternatively I could settle for a 32-bit `s`. Either way, I can't tell if this move would be trivial or devastatingly difficult!
+And obviously my function(s) can only generate random numbers over a max range of 256. Lemire's original example code takes a 64-bit integer for its `s`, which makes the function much more practical and versatile. I can't tell if this move would be trivial or devastatingly difficult!
 
 ## Appendix: More sample code
 

@@ -18,13 +18,6 @@ pub fn roll_using_lemire_fast(s: u8) -> u16 {
     m >> 8
 }
 
-// A stand-in of how the Rand crate rolls a six-sided die, for benchmarking purposes
-#[inline]
-pub fn roll_using_gen_range(dice_size: u8) -> u8 {
-    let mut rng = thread_rng();
-    rng.gen_range(0, dice_size - 1)
-}
-
 // Break up Lemire's divisionless random into 4 or 5 functions for improved readabilityp
 #[inline]
 pub fn roll_using_readable_lemire(s: u8) -> u16 {
@@ -80,4 +73,30 @@ pub fn two_fifty_six_modulo(s: u8) -> u8 {
 // result
 pub fn convert_an_m_to_a_roll_result(m: u16) -> u16 {
     m >> 8
+}
+
+// Here's a more traditional version of this function, just using
+// modulo and rejection
+#[inline]
+pub fn roll_using_traditional_rejection_method(s: u8) -> u8 {
+    let ceiling = 255 - (255 % 6); // is 252
+
+    loop {
+        let seed = rand::random::<u8>(); // get a random number from 0..=255
+        if seed < ceiling {
+            // Got a good seed, so we'll make it a dice roll and return it
+            return seed % s;
+        } else {
+            // Got a bad seed (too high)!
+            // Return to the top of this loop to get a new seed
+            continue;
+        }
+    }
+}
+
+// A stand-in of how the Rand crate rolls a six-sided die, for benchmarking purposes
+#[inline]
+pub fn roll_using_gen_range(dice_size: u8) -> u8 {
+    let mut rng = thread_rng();
+    rng.gen_range(0, dice_size - 1)
 }
