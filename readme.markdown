@@ -516,7 +516,9 @@ fn convert_an_m_to_a_roll_result(m: u16) -> u16 {
 
 I think it came out OK! 
 
-Though as you might guess it is a bit slower than the more compact `roll_using_lemire_fast`: Criterion informs that the readable version runs in 8.480 nanoseconds compared to 5.644 nanoseconds.
+Another thing I like about this split version is that it's pretty easy for me to test. Specifically, since `lemire_from_seed` uses whatever seed you give it, you can test it for all possible seeds and see if it produces an equal distribution of roll results (see the `even_distribution` test).
+
+As you might guess it is a bit slower than the more compact `roll_using_lemire_fast`: Criterion informs that the readable version runs in 8.480 nanoseconds compared to 5.644 nanoseconds.
 
 ## Further work to do
 
