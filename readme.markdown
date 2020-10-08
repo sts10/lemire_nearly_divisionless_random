@@ -71,7 +71,7 @@ Tellingly and embarrassingly, my ability to read Rust code isn't good enough to 
 
 But sufficient to say: I'm very skeptical that I'm writing any novel or usable Rust code here. Just trying to learn something new.
 
-## Part 1: Unfair dice
+## Unfair dice
 
 In [the first section of the comment](https://github.com/colmmacc/s2n/blob/7ad9240c8b9ade0cc3a403a732ba9f1289934abd/utils/s2n_random.c#L196-L213), MacCárthaigh walks us through a basic example of what we'll ultimately doing. 
 
