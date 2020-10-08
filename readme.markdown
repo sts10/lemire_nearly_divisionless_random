@@ -65,9 +65,11 @@ I also started throwing some Rust code in a playground, figuring I'd attempt an 
 
 ## A note about Lemire and Rust
 
-Pretty late into this little project of mine I learned that the main Rust library for generating random number, [Rand](https://github.com/rust-random/rand), apparently [took at least some ideas from Lemire back in 2018 for version 0.5.0](https://www.reddit.com/r/rust/comments/8l95zk/rand_050_released/) (the Reddit post links to [this Lemire post from 2016](https://lemire.me/blog/2016/06/27/a-fast-alternative-to-the-modulo-reduction/)). Tellingly, my ability to read Rust code isn't good enough to find where Lemire's work is used in the library, or if it's the same as what I did below. Any schooling welcome! 
+Pretty late into this little project of mine I learned that the main Rust library for generating random number, [Rand](https://github.com/rust-random/rand), apparently took at least some ideas from Lemire back in 2018 for version 0.5.0, [according to this post on the r/rust subreddit](https://www.reddit.com/r/rust/comments/8l95zk/rand_050_released/). However, the Reddit post is from May 2018 and links to [this Lemire post from 2016](https://lemire.me/blog/2016/06/27/a-fast-alternative-to-the-modulo-reduction/)), so it's unclear if the Rand crate has adapted the particular divisionless random algorithm I'm trying to implement here, as opposed to an earlier idea about randomized from Lemire. 
 
-But sufficient to say: I have no delusions that I'm writing novel or usable Rust code here. Just trying to learn something new.
+Tellingly and embarrassingly, my ability to read Rust code isn't good enough to find where Lemire's work is used in the library, so it's difficult for me to verify this on my own. Any schooling welcome!
+
+But sufficient to say: I'm very skeptical that I'm writing any novel or usable Rust code here. Just trying to learn something new.
 
 ## Part 1: Unfair dice
 
@@ -435,9 +437,9 @@ But I still don't _quite_ understand how it works, or it actually speeds things 
 
 ## Writing benchmark tests using the Criterion crate
 
-Just for fun, I wanted to benchmark my beautifully named `roll_using_lemire_fast` function. Benchmarking against [Rust's Rand library](https://github.com/rust-random/rand) seemed a good choice, though I later learned that [that library already uses some of Lemire's work](https://www.reddit.com/r/rust/comments/8l95zk/rand_050_released/). But I pressed on.
+Just for fun, I wanted to benchmark my beautifully named `roll_using_lemire_fast` function. Benchmarking against [Rust's Rand library](https://github.com/rust-random/rand) seemed a good choice, though, as noted above, it's unclear to me if the Rand crate already incorporates some of Lemire's ideas.
 
-To find out, I had to learn a little about benchmarking Rust code, something I'd never _formally_ done before. After a few search quieries, I decided to use a crate called [Criterion](https://github.com/bheisler/criterion.rs).
+First, I had to learn a little about benchmarking Rust code, something I'd never _formally_ done before. After a few search quieries, I decided to use a crate called [Criterion](https://github.com/bheisler/criterion.rs).
 
 Not gonna lie, did a lot of copy and pasting from [its Getting Started page](https://bheisler.github.io/criterion.rs/book/getting_started.html). But here's what I ended up with in `./benches/my_benchmark.rs`:
 
@@ -517,7 +519,7 @@ fn lemire_from_seed(seed: u8, s: u8) -> Option<u16> {
     if l >= s {
         return Some(m);
     }
-    let floor: u8 = eight_modulo(s);
+    let floor: u8 = two_fifty_six_modulo(s);
     if l < floor {
         return None;
     } else {
@@ -534,7 +536,7 @@ fn modulo_256(m: u16) -> u8 {
 }
 
 // https://github.com/colmmacc/s2n/blob/7ad9240c8b9ade0cc3a403a732ba9f1289934abd/utils/s2n_random.c#L393-L423
-fn eight_modulo(s: u8) -> u8 {
+fn two_fifty_six_modulo(s: u8) -> u8 {
     (u8::MAX - s + 1) % s
 }
 
