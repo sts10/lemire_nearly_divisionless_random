@@ -6,9 +6,9 @@ Disclaimer: I am not a cryptographer or even a professional developer.
 
 ---
 
-# My notes on understanding Lemire's algorithm
+# My notes on understanding Lemire's nearly divisionless random
 
-Last weekend, a mutual on Mastodon sent me [a really interesting blog post about something called Lemire's nearly divisonless random](https://veryseriousblog.com/posts/dissecting-lemire) written by [Colm MacCárthaigh](https://veryseriousblog.com/about). 
+Last weekend, a mutual on Mastodon sent me [a really interesting blog post about something called Lemire's nearly divisionless random](https://veryseriousblog.com/posts/dissecting-lemire) written by [Colm MacCárthaigh](https://veryseriousblog.com/about). 
 
 Apparently MacCárthaigh just wrapped up a contest "for the most readable implementations of Daniel Lemire's nearly divisionless algorithm for selecting a random number from an interval," and has awarded cash prizes to the top three.
 
@@ -49,7 +49,7 @@ uint64_t nearlydivisionless ( uint64_t s ) {
 }
 ```
 
-On first blush, this made no sense to me. Like none, beyond this is a function called `nearlydivisionless` and it probably takes a 64-it integer called `s` as an argument. Even if it was in a language I can write I think I'd have still been completely lost. Thankfully, MacCárthaigh reassures:
+On first blush, this made no sense to me. Like none, beyond maybe that this is a function called `nearlydivisionless` and it probably takes a 64-bit integer called `s` as an argument. Even if it was in a language I can write I think I'd have still been completely lost. Thankfully, MacCárthaigh reassures:
 
 > The second reason I chose Lemire’s algorithm is that it is impenetrable upon first reading. There are lucky few people who are so practiced and conversant in number manipulation that they can see inside of algorithms like Neo in the matrix, but I don’t mean them. To the average reader, myself included, it’s not clear what’s going on and why.
 
@@ -158,9 +158,7 @@ fn rejection_method() -> u8 {
 }
 ```
 
-This solves our problem!
-
-But one bummer here is that in 4 our of 256 potential seeds, we have to do a do-over, which isn't ideal for efficiency. As MacCárthaigh notes: 
+This solves our fairness problem! But it isn't very efficient. As MacCárthaigh notes: 
 
 > This algorithm works correctly but is expensive. There's at least two % operations per call and maybe more, and those operations are among the slowest a CPU can be asked to perform.
 
@@ -193,15 +191,19 @@ This is important later, so really convince yourself of this.
 
 In his example, x is what I'm calling the seed, s is 3 (for me it's 6 for sides of the die). So filling those in, we get: 
 
-> Any contiguous range of (n * 3) numbers will contain exactly n values where [the seed] % 3 is 0, n values where [the seed] % 3 is 1, and so on, up to n values where 8 % 3 is (3 - 1).
+> Any contiguous range of (n * 3) numbers will contain exactly n values where [the seed] % 3 is 0, n values where [the seed] % 3 is 1, and so on, up to n values where [the seed] % 3 is (3 - 1).
 
-I'm not really sure how to explain this further so I'm going to move on!
+In MacCárthaigh's ASCII drawing, the n value is 2. So in any range of 6 numbers (like 1 through 6 or 2 through 7), there will be exactly 2 values where `seed % 3` is 0, 2 values where `seed % 3`, and 2 values where `seed % 3` is 2. It goes up to and stops at 2 because that's (s -1) which is 3 - 1 in our case.
+
+Sort of get it? 
 
 ## Using a floor rather than a ceiling
 
-One thing (a) I can get my head around and (b) will be helpful later is the idea that we could use a "floor" rather than a "ceiling" here. In other words, instead of rejecting seeds of 252, 253, 254, and 255; we could instead reject seeds of 0, 1, 2, and 3. 
+As a test of the above maxim, let's work out how we could use a "floor" rather than a "ceiling" if we wanted. (This will be helpful later!)
+ 
+For our 6-sided-die example, that means that instead of rejecting seeds of 252, 253, 254, and 255; we could instead reject seeds of 0, 1, 2, and 3 to get a fair function.
 
-To calculate that `3` floor, let's do `let floor = 255 % 6`. 
+To calculate that `3` to define floor, let's do `let floor = 255 % 6`. 
 
 So all together it'd look like: 
 
@@ -228,30 +230,28 @@ fn rejection_method() -> u8 {
 
 You can test this function for equal distribution [with this rust Playground](https://play.rust-lang.org/?version=stable&mode=debug&edition=2018&gist=c2863ec2f3859fed16cb4a8e2855e17d).
 
-(I'm not sure if this is the correct way to calculate `floor` for all possible dice...)
+(Note: I'm not completely sure if this is the correct way to calculate `floor` for all possible dice...)
 
 ## Our first attempt at Lemire's algorithm
 
-Alright, at this point MacCárthaigh deems us ready for the new stuff. In [the next section](https://github.com/colmmacc/s2n/blob/7ad9240c8b9ade0cc3a403a732ba9f1289934abd/utils/s2n_random.c#L259-L311) he introduces Lemire's algorithm, but he describes an **unfair** version of it. It's unfair in a way that's similar to our first dice implementation, but a little different. Let's explore!
+Alright, at this point MacCárthaigh deems us ready for the new stuff. In [the next section](https://github.com/colmmacc/s2n/blob/7ad9240c8b9ade0cc3a403a732ba9f1289934abd/utils/s2n_random.c#L259-L311) he introduces Lemire's algorithm, but he starts us off with an **unfair** version of it. It's unfair in a way that's similar to our first dice implementation, but a little different. Let's explore!
 
 ```rust
 fn lemire_unfair() {
     let seed = rand::random::<u8>(); // get a random number from 0..=255
 
+    // for sides of our die, we're going to use the variable s
+    let s = 6;
+
     // Kind of blindly trusting the explanation of Lemire's algorithm,
     // we're going to calculate a variable named m like this:
-    let s = 6
-    let m: usize = seed as usize * s; // Note that the maximum value of m is 255 * 6 or 1,530
+    let m: usize = seed as usize * s; // m is a random multiple of 6 between 0 and 1,530
 
-    // So m is a random number, with values that are multiples of 6:
-    // 0, 6, 12, 18, 24, 30, etc.  up to 1,530
+    // m is a random number, with values that are multiples of 6:
+    // 0, 6, 12, 18, 24, 30, etc. up to 1,530
 
     // Note that we can easily get a dice roll (though not a fair one) from m by dividing it by 256
-    let seed = rand::random::<u8>(); // get a random number from 0..=255
-    let m: usize = seed as usize * 6; // Note that the maximum value of m is 255 * 6 or 1,530
     let example_roll = m / 256;
-    println!("Example roll using m and division: {}", example_roll);
-
 
     // But this method still unfair in a similar way that our initial roll function is
     // unfair.
@@ -259,8 +259,16 @@ fn lemire_unfair() {
     // For seeds from 0 to 42 (43 seed values), we get a dice roll of 0
     assert_eq!((42 * 6) / 256, 0);
     // For seeds from 43 to 85 (43 seed values), we get a dice roll of 1
-    assert_eq!((43 * 6) / 256, 1);
+    assert_eq!((43 * 6) / 256, 1); 
+    // but only due to rounding. If we use floats we see the messier truth:
+    assert_eq!((43.0 * 6.0) / 256.0, 1.0078125); 
+
+    // We get a dice roll integer value of 1 for seeds up to and including
+    // 85
     assert_eq!((85 * 6) / 256, 1);
+    // though we're now very close to 2
+    assert_eq!((85.0 * 6.0) / 256.0, 1.9921875);
+
     // For seeds from 86 to 127 (42 seed values), we get a dice roll of 2
     assert_eq!((86 * 6) / 256, 2);
     assert_eq!((127 * 6) / 256, 2);
@@ -278,9 +286,12 @@ fn lemire_unfair() {
 }
 ```
 
+
+I don't _quite_ understand why this code over-returns 0, 1, 3 and 4 and under-returns 2 and 5. I'm guessing it's due to how the fractions and rounding works out? 
+
 ### A trick to calculating m
 
-Remember Lemire is all about speed. So there's a few times where he uses some computer science tricks to speed things up. For example, apparently thanks to the nature of u8 integers, dividing by 256 can also be done be using a "bit shift" to the right of 8.
+Remember: Lemire's divisionless random is all about speed. So there's a few times where he uses some computer science tricks to speed things up. For example, apparently thanks to the nature of u8 integers, dividing a number by 256 can also be done be using a "bit shift" to the right by 8.
 
 In Rust, [a right shift is represented with >>](https://doc.rust-lang.org/book/appendix-02-operators.html), so right-shifting `m` by 8 `m >> 8`. We can pretty easily check this ourselves for all possible `u8` values by running the following:
 
@@ -292,7 +303,9 @@ for _n in 0..=255 {
 }
 ```
 
-Going forward I'll try to use `m >> 8`. This little operation is conceptually important because it'll be the very last calculation for us, the one that acutally produces the 0 to 5 number. (In MacCárthaigh example, he's using 3-bit numbers, so he uses `m >> 3`.)
+Going forward I'll try to use `m >> 8` in code samples. 
+
+This little operation is conceptually important because it'll be the very last calculation for us, the one that actually produces the 0 to 5 number that represents our dice roll. (In MacCárthaigh's example, he's using 3-bit numbers, so he uses `m >> 3`.)
 
 But no matter how you calculate `m`, our current method is still unfair. 
 
@@ -300,16 +313,19 @@ But no matter how you calculate `m`, our current method is still unfair.
 
 Alright now we're getting dangerous. In [the next section](https://github.com/colmmacc/s2n/blob/7ad9240c8b9ade0cc3a403a732ba9f1289934abd/utils/s2n_random.c#L294-L338), MacCárthaigh introduces boats and the `l` variable. I definitely was using pen and graph paper at this point. So for better or worse I'm going to stop narrating along with the comment and more fully encourage you to read it.
 
+But my understanding is we trying to do the same thing we did before: make an unfair algorithm fair by figuring out which seed values to reject. My understanding is that we're going to do this by rejecting values that are below a floor (rather than above a ceiling). But what's strange is that we're no longer comparing the seed, straight from the random number generator, to the floor -- instead we're going to compare the floor to a new variable called `l`.
+
 For now, I'll paste some code I wrote as I made my way to a final implementation. 
 
-For example, at around this point I broke my initial attempt at Lemire's into two functions: 
+For example, at around this point I wrote an initial attempt at Lemire's, using two functions: an inner function and outer function. 
 
 ```rust
 fn lemire_slow(seed: u8, s: usize) -> Option<usize> {
     let rand_range_length = 256; // range of seed
     let m: usize = seed as usize * s; // Note that the maximum value of m is 255 * 6 or 1,530
     let l = m % rand_range_length; // a new variable l!
-    if l >= (rand_range_length % s) {
+    let floor = rand_range_length % s; // for us (with s set to 6), this is 4
+    if l >= floor {
         // good seed, return the dice roll
         return Some(m >> 8);
     } else {
@@ -332,37 +348,44 @@ fn roll_using_lemire_slow(dice_size: usize) -> usize {
 }
 ```
 
-I like this because `lemire_slow` offers a Rust-y visual of when we reject a seed (return None)
+I like this because `lemire_slow` offers a Rust-y visual of when we reject a seed (return None). More on this later!
 
 ## Medium Lemire 
 
-Here's what was my next attempt, which uses the `floor` trick.
+Here's what was my next iteration, which puts it all in one function. I also take advantage of the fact that if `l >= s` then we know we definitely have a good `m`. This made sense to me later: It's because we know `floor` (256 % s) is definitely lower than `s`. We take advantage of that shortcut by adding that `if l < s as u16`.
+
+Also, since we put everything in one function, we get to do `while l < floor`, which is basically saying: "While l is below the floor, keep getting new seeds until the `l` we calculate from the seed is at or above `floor`.
 
 ```rust
-// Can't test for even distribution as written
-fn roll_using_lemire_medium(seed: u8, s: u8) -> u16 {
-    // let seed = rand::random::<u8>(); // get a random number from 0..=255
-    let rand_range_length: u16 = 256; // could use `u8::MAX + 1` here, but can't imagine much of a difference?
+fn roll_using_lemire_medium(s: u8) -> u16 {
+    let seed = rand::random::<u8>(); // get a random number from 0..=255
+    let rand_range_length: u16 = 256; 
 
-    let m: u16 = seed as u16 * s as u16; // maximum value of m is 255 * s (if s == 6, then max of m is 1,530)
-    let mut l = m % rand_range_length; // this operation is done differently in the C example
+    let m: u16 = seed as u16 * s as u16; 
+    let mut l = m % rand_range_length; 
 
     if l < s as u16 {
-        let floor = rand_range_length % s as u16;
+        let floor = rand_range_length % s as u16; // always 4 for us (assuming s is 6)
+        // while l is below the floor...
         while l < floor {
+            // keep making new seeds
             let seed = rand::random::<u8>(); // get a random number from 0..=255
-            let m: u16 = seed as u16 * s as u16; // Note that the maximum value of m is 255 * 6 or 1,530
+            let m: u16 = seed as u16 * s as u16; 
+            // and new `l`s until we get one that's at or above the floor
             l = m % rand_range_length;
         }
     }
+    // if we made it here we know we have a "good" m
+    // so convert m to a dice roll result between 0 and 6 and return it
     m >> 8
 }
 ```
 
-## Fast Lemire
+Nice! 
 
-And finally here's my "fast" Lemire, where I decided to end my journey for now. 
+## More shortcuts to create a "fast" Lemire
 
+At this point I endeavored to translate more of the shortcuts Lemire and MacCárthaigh use from C to Rust. Below is the "fastest" I've gotten the function so far.
 
 ```rust
 fn roll_using_lemire_fast(s: u8) -> u16 {
@@ -385,9 +408,13 @@ fn roll_using_lemire_fast(s: u8) -> u16 {
 
 As the name of the function implies, this is where I did my best to implement any and all speed shortcuts described by Lemire and MacCárthaigh.
 
+#### Calculating l with a faster equivalent to `m % 256`
+
 First, you'll notice I replaced the apparently slow `let l = m % 256;` with `let l: u8 = m as u8;`, which is apparently another one of those math/comp sci shortcut tricks. [MacCárthaigh explains it pretty well in the comment](https://github.com/colmmacc/s2n/blob/7ad9240c8b9ade0cc3a403a732ba9f1289934abd/utils/s2n_random.c#L336-L358), where the finished code is the even more cryptic `uint3_t l = (uint3_t) m;`.
 
 Helpfully for my Rust implementation, this same trick is explained in a comment in [the Rust by Example page on casting](https://doc.rust-lang.org/rust-by-example/types/cast.html).
+
+#### Calculating floor with a faster equivalent to `8 % s`
 
 I also used `let floor: u8 = (u8::MAX - s + 1) % s;` where Lemire uses `uint64_t t = -s % s;`. MacCárthaigh [explains also this shortcut in his comment](https://github.com/colmmacc/s2n/blob/7ad9240c8b9ade0cc3a403a732ba9f1289934abd/utils/s2n_random.c#L393-L423). I got the Rust implementation with help from another Mastodon friend and a little luck.
 
@@ -404,15 +431,15 @@ fn main() {
 }
 ```
 
-I should probably run a benchmark to see if it matters. 
+But I still don't _quite_ understand how it works, or it actually speeds things up.
 
 ## Writing benchmark tests using the Criterion crate
 
 Just for fun, I wanted to benchmark my beautifully named `roll_using_lemire_fast` function. Benchmarking against [Rust's Rand library](https://github.com/rust-random/rand) seemed a good choice, though I later learned that [that library already uses some of Lemire's work](https://www.reddit.com/r/rust/comments/8l95zk/rand_050_released/). But I pressed on.
 
-To find out, I decided to learn a little about benchmarking Rust code, something I'd never _formally_ done before. After a few search quieries, I decided to use a crate called [Criterion](https://github.com/bheisler/criterion.rs).
+To find out, I had to learn a little about benchmarking Rust code, something I'd never _formally_ done before. After a few search quieries, I decided to use a crate called [Criterion](https://github.com/bheisler/criterion.rs).
 
-Not going to lie, did a lot of copy and pasting from [its Getting Started page](https://bheisler.github.io/criterion.rs/book/getting_started.html). But here's what I ended up with in `./benches/my_benchmark.rs`:
+Not gonna lie, did a lot of copy and pasting from [its Getting Started page](https://bheisler.github.io/criterion.rs/book/getting_started.html). But here's what I ended up with in `./benches/my_benchmark.rs`:
 
 ```rust
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
@@ -431,7 +458,7 @@ criterion_group!(benches, criterion_benchmark);
 criterion_main!(benches);
 ```
 
-And then I hastily wrote this in `lib.rs`:
+And then I hastily wrote this in `lib.rs` as a representative of the Rand crate's functionality:
 
 ```rust
 pub fn roll_using_gen_range(dice_size: u8) -> u8 {
@@ -440,12 +467,10 @@ pub fn roll_using_gen_range(dice_size: u8) -> u8 {
 }
 ```
 
-Criterion showed my Lemire function beating `roll_using_gen_range` by a few nanoseconds. But since my assumption is that Rand's `gen_range` uses Lemire too, my guess is that the only reason my Lemire is faster is because Rand and `gen_range` are more versatile and complex.
+Criterion showed my Lemire function beating `roll_using_gen_range` by a few nanoseconds. But since my assumption is that Rand's `gen_range` uses Lemire too, my guess is that the only reason my Lemire is faster is because Rand and `gen_range` are more versatile and complex?
 
 ```text
 lemire fast 6           time:   [5.8207 ns 5.8747 ns 5.9328 ns]                           
-                        change: [+4.5523% +5.6439% +6.7200%] (p = 0.00 < 0.05)
-                        Performance has regressed.
 Found 2 outliers among 100 measurements (2.00%)
   2 (2.00%) high mild
 
@@ -460,16 +485,15 @@ MacCárthaigh original challenge was to make the algorithm more _readable_. And 
 
 In thinking about how I might make a more _readable_ implementation, I returned to the structure I used for my first fair (but slow) implementation of Lemire above, which was broken into two functions.
 
-I like two things about splitting it into two functions, an outer and an inner. First, it shows what we might call the "seed rejection" logic clearly: The outer function (`roll_using_readable_lemire`) has the only loop, in which it passes a possible seed to an inner function (`lemire_from_seed`). 
+I like two things about splitting it into two functions, an outer and an inner. First, it shows what we might call the "seed rejection" logic clearly: The outer function (`roll_using_readable_lemire`) has the only loop, in which it passes a possible seed to an inner function (`lemire_from_seed`) for _judgment_.
 
-Having this inner function return a Rust `Option` seems like a nice choice for readability here. In Rust, an `Option` can be either `Some` result or `None`, which maps nicely to "you gave me a 'good' seed, so here's the resulting roll result" vs. "you gave me a bad seed, so I'm not returning a roll result" (None).
+Having this inner function return a Rust `Option` seems like a nice choice for readability here. In Rust, an [`Option`](https://doc.rust-lang.org/std/option/index.html) can be either `Some` result or `None`, which maps nicely to "you gave me a 'good' seed, so here's the resulting roll result" or "you gave me a bad seed, so I'm not returning a roll result" (None).
 
-And the second thing I like about this split version is that it's pretty easy for me to test, since most of the logic lives in a function that doesn't have `rand:random::<u8>()` in it. 
+And the second thing I like about this split version is that it's pretty easy for me to test, since most of the logic lives in a function that doesn't have `rand:random::<u8>()` in it (the inner one).
 
-So I tried to take the knowledge and tricks I learned working out `roll_using_lemire_fast`, but put them back into split functions. I also figured I'd separate out the 3 math/computer science tricks Lemire uses to speed up computation into their own "helper" functions, for a total of 5 functions.
+So I tried to take the knowledge and tricks I learned working out `roll_using_lemire_fast` and put them back into split functions. I also figured I'd separate out the 3 math/computer science tricks Lemire uses to speed up computation into their own "helper" functions, for a total of 5 functions.
 
 Here's what I ended up with:
-
 
 ```rust
 pub fn roll_using_readable_lemire(s: u8) -> u16 {
@@ -521,7 +545,7 @@ fn convert_an_m_to_a_roll_result(m: u16) -> u16 {
 }
 ```
 
-As you can hopefully see, I decided to have the inner function, `lemire_from_seed`, return Some `m` or no `m` using Rust's `Option`. This leaves the (simple) work of converting a "good" `m` to a roll result to the outer function, which I called `roll_using_readable_lemire`. And in the interest of using explicitly named helper functions where possible, I do it with a helper function called `convert_an_m_to_a_roll_result(m)`.
+As you can hopefully see, I decided to have the inner function, `lemire_from_seed`, return Some `m` or no `m`, using Rust's `Option`. This leaves the (simple) work of converting a "good" `m` to a roll result to the outer function, which I called `roll_using_readable_lemire`. And in the interest of using explicitly named helper functions where possible, I do it with a helper function called `convert_an_m_to_a_roll_result(m)`.
 
 We also gain some ease when it comes to testing. Since `lemire_from_seed` uses whatever seed you give it, you can test it for all possible seeds and see if it produces an equal distribution of roll results (see the `even_distribution` test).
 
@@ -533,11 +557,11 @@ As you might guess, this version is a bit slower than the more compact `roll_usi
 
 ## So do I understand it now?
 
-Honestly, no. I mean, a lot more than I did when I started. But as I write this I still don't quite understand how the `m` and `l` variables work or really what `l` represents even. And I'm confused about how the `floor`  is calculated. But it's a process! (I think I need to read Lemire's writing.) Maybe some of this will help give others one more little foothold on their path to understanding!
+Honestly, no. I mean, a lot more than I did when I started. But as I write this I still don't quite understand how the `m` and `l` variables work or really what `l` represents even. But it's a process! (I think I need to read Lemire's writing.) Maybe some of this will help give others a small foothold on their path to understanding!
 
 ## Further work to do
 
-First, I probably need to double check everything. More testing of all the functions in `src/lib` would be nice. I'd like to figure out how to write a test to confirm that `roll_using_lemire_fast` is fair. (Maybe a Chi-squared test?)
+First, I probably need to double-check everything. Adding more tests of all the functions in `src/lib.rs` would be nice. For example, I'd like to figure out how to write a test to confirm that `roll_using_lemire_fast` is fair. (Maybe a Chi-squared test?)
 
 And obviously my function(s) can only generate random numbers over a max range of 256. Lemire's original example code takes a 64-bit integer for its `s`, which makes the function much more practical and versatile. This requires an `m` of 128 bits, which I'll have to check if Rust can handle? Alternatively I could settle for a 32-bit `s`. Either way, I can't tell if this move would be trivial or devastatingly difficult!
 
