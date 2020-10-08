@@ -310,7 +310,7 @@ This little operation is conceptually important because it'll be the very last c
 
 But no matter how you calculate `m`, our current method is still unfair. 
 
-## A fair Lemire
+## A fair Lemire's
 
 Alright now we're getting dangerous. In [the next section](https://github.com/colmmacc/s2n/blob/7ad9240c8b9ade0cc3a403a732ba9f1289934abd/utils/s2n_random.c#L294-L338), MacCárthaigh introduces boats and the `l` variable. I definitely was using pen and graph paper at this point. So for better or worse I'm going to stop narrating along with the comment and more fully encourage you to read it.
 
@@ -351,7 +351,7 @@ fn roll_using_lemire_slow(dice_size: usize) -> usize {
 
 I like this because `lemire_slow` offers a Rust-y visual of when we reject a seed (return None). More on this later!
 
-## Medium Lemire 
+## A slightly faster version
 
 Here's what was my next iteration, which puts it all in one function. I also take advantage of the fact that if `l >= s` then we know we definitely have a good `m`. This made sense to me later: It's because we know `floor` (256 % s) is definitely lower than `s`. We take advantage of that shortcut by adding that `if l < s as u16`.
 
@@ -384,7 +384,7 @@ fn roll_using_lemire_medium(s: u8) -> u16 {
 
 Nice! 
 
-## More shortcuts to create a "fast" Lemire
+## And finally, creating a "fast" version, using more shortcuts
 
 At this point I endeavored to translate more of the shortcuts Lemire and MacCárthaigh use from C to Rust. Below is the "fastest" I've gotten the function so far.
 
