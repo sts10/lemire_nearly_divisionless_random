@@ -288,7 +288,6 @@ fn lemire_unfair() {
 }
 ```
 
-
 I don't _quite_ understand why this code over-returns 0, 1, 3 and 4 and under-returns 2 and 5. I'm guessing it's due to how the fractions and rounding works out? 
 
 ### A trick to calculating m a bit faster
@@ -406,9 +405,9 @@ fn roll_using_lemire_fast(s: u8) -> u16 {
 }
 ```
 
-### Notes on Fast Lemire function and its two weird shortcuts
+### Two new shortcuts
 
-As the name of the function implies, this is where I did my best to implement any and all speed shortcuts described by Lemire and MacCárthaigh.
+As the name of the function implies, `roll_using_lemire_fast` is where I did my best to implement all remaining speed shortcuts described by Lemire and MacCárthaigh.
 
 #### Calculating l with a faster equivalent to `m % 256`
 
@@ -435,13 +434,15 @@ fn main() {
 
 But I still don't _quite_ understand how it works, or it actually speeds things up.
 
-## Writing benchmark tests using the Criterion crate
+## Benchmarking
 
 Time for the true test: Seeing if my beautifully named `roll_using_lemire_fast` function was fast. 
 
-To test it, I figured I'd benchmark it against (a) that "traditional" rejection method we described above and (b) [Rust's Rand library](https://github.com/rust-random/rand). (Though, as noted above, it's unclear to me if the Rand crate already incorporates some of Lemire's ideas.)
+To test it, I figured I'd benchmark it against (a) that "traditional" rejection method we described above and, more for fun, (b) [Rust's Rand library](https://github.com/rust-random/rand). (Though, as noted above, it's unclear to me if the Rand crate already incorporates which of Lemire's ideas.)
 
-First, I had to learn a little about benchmarking Rust code, something I'd never _formally_ done before. After a few search quieries, I decided to use a crate called [Criterion](https://github.com/bheisler/criterion.rs).
+### Writing the benchmarks
+
+First, I had to learn a little about benchmarking Rust code, something I'd never _formally_ done before. After a few search queries, I decided to use a crate called [Criterion](https://github.com/bheisler/criterion.rs).
 
 Not gonna lie, did a lot of copy and pasting from [its Getting Started page](https://bheisler.github.io/criterion.rs/book/getting_started.html). But here's what I ended up with in `./benches/my_benchmark.rs`:
 
@@ -479,7 +480,9 @@ pub fn roll_using_gen_range(dice_size: u8) -> u8 {
 }
 ```
 
-Criterion showed my Lemire function beating `roll_using_gen_range` by a few nanoseconds. But since my assumption is that Rand's `gen_range` uses Lemire too, my guess is that the only reason my Lemire is faster is because Rand and `gen_range` are more versatile and complex?
+### Benchmark results
+
+Drum roll...
 
 ```text
 'lemire fast', s = 6    time:   [5.3661 ns 5.4143 ns 5.4674 ns]                                  
@@ -490,15 +493,17 @@ Traditional rejection method, s=6
                         time:   [6.2933 ns 6.3352 ns 6.3809 ns]
 ```
 
-I was really glad to see "Lemire fast" was the fastest, beating the traditional rejection method by about a nanosecond. All that work paid off!
+I was really glad to see "Lemire fast" was the fastest, beating the traditional rejection method by about a nanosecond. All that work paid off! My understanding at this point is that nanosecond is saved by the three shortcuts we implemented, since they work to avoid division, which is computationally expensive.
 
-Slowest was my function using the Rand crate's `gen_range` method, which is either because it uses a slower algorithm or the method is much more versatile and complex, and thus a little slower.
+Slowest was my function using the Rand crate's `gen_range` method, which is either because it uses a slower algorithm or the `gen_range` method is much more versatile (it certainly isn't limited to 8-bit integers) and complex, and thus a little slower. But I am just speculating here. 
 
 ## What about readability? 
 
 MacCárthaigh original challenge was to make the algorithm more _readable_. And I wouldn't say my code above is any more readable than MacCárthaigh's -- it's almost exactly the same line-by-line, just adapted to Rust.
 
 In thinking about how I might make a more _readable_ implementation, I returned to the structure I used for my first fair (but slow) implementation of Lemire above, which was broken into two functions.
+
+### Splitting it up for increased readability
 
 I like two things about splitting it into two functions, an outer and an inner. First, it shows what we might call the "seed rejection" logic clearly: The outer function (`roll_using_readable_lemire`) has the only loop, in which it passes a possible seed to an inner function (`lemire_from_seed`) for _judgment_.
 
@@ -560,17 +565,21 @@ fn convert_an_m_to_a_roll_result(m: u16) -> u16 {
 }
 ```
 
-As you can hopefully see, I decided to have the inner function, `lemire_from_seed`, return Some `m` or no `m`, using Rust's `Option`. This leaves the (simple) work of converting a "good" `m` to a roll result to the outer function, which I called `roll_using_readable_lemire`. And in the interest of using explicitly named helper functions where possible, I do it with a helper function called `convert_an_m_to_a_roll_result(m)`.
+As you can hopefully see, I decided to have the inner function, `lemire_from_seed`, return Some `m` or no `m`, using Rust's `Option`. This leaves the (simple) work of converting a "good" `m` to a roll result to the outer function, which I called `roll_using_readable_lemire`. And in the interest of using explicitly named helper functions where possible, I do it with a short function called `convert_an_m_to_a_roll_result(m)`.
 
-We also gain some ease when it comes to testing. Since `lemire_from_seed` uses whatever seed you give it, you can test it for all possible seeds and see if it produces an equal distribution of roll results (see the `even_distribution` test).
+### Easier testing
 
-And I was able to break out each of the three "tricks" MacCárthaigh describes into their own, one-liner helper functions, making them easier to read and far easier to test and prove to oneself that they work as described.
+We also gain some ease when it comes to testing. Since `lemire_from_seed` uses whatever seed you give it, you can test it for all possible seeds and see if it produces an equal distribution of roll results (see the `is_distribution_perfectly_even` test in `tests/tests.rb`).
+
+### Shortcuts as helper functions
+
+I was also able to break out each of the three shortcuts MacCárthaigh describes into their own, one-line helper functions, making them easier to read and far easier to test and prove to oneself that they work as described, which I also did in `tests/tests.rs` (which is why they're all public functions).
 
 I think it came out OK! 
 
-As you might guess, this version is a bit slower than the more compact `roll_using_lemire_fast`, and it's evedn slower than the traditional rejection method described above: In a fresh benchmark, the readable version runs in 8.480 nanoseconds compared to the more compact version's 5.644 nanoseconds and the traditional method's 6.344 nanoseconds. But again, I'm not writing for speed at this point.
+As you might guess, this version is a bit slower than the more compact `roll_using_lemire_fast`, and it's even slower than the traditional rejection method described above: In a fresh benchmark, the readable version runs in 8.480 nanoseconds compared to the more compact version's 5.644 nanoseconds and the traditional method's 6.344 nanoseconds. But again, I'm not writing for speed at this point.
 
-## So do I understand it now?
+## So do I understand Lemire's nearly divisionless random now?
 
 Honestly, I'd say no. I mean, a lot more than I did when I started. But as I write this I still don't feel like I could explain it to, say, a developer. But it's a process! (I think it would help to read Lemire's writing more.) But maybe some of this will help give others a small foothold on their path to understanding!
 
