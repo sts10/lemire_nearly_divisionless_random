@@ -2,7 +2,7 @@
 
 TL;DR As a learning experience, I tried write my own implementation of [Lemire's nearly divisionless random](https://lemire.me/blog/2019/06/06/nearly-divisionless-random-integer-generation-on-various-systems/) in Rust. Currently it's limited to 8-bit integers. 
 
-Disclaimer: Not a cryptographer or even a programmer by trade. 
+Disclaimer: I am not a cryptographer or even a professional developer.
 
 ---
 
@@ -22,11 +22,11 @@ Hence his contest.
 
 ---
 
-A couple things about all this intrigued me. First, I had just been [working on a project](https://sts10.github.io/2020/09/30/making-a-word-list.html) that dealt with choosing random words from a long list. Second, anything shorthanded with a last name, followed by the word "algorithm" seems pretty cool, especially if it's relatively new. 
+A couple things about this intrigued me. First, I had just been [working on a project](https://sts10.github.io/2020/09/30/making-a-word-list.html) that dealt with choosing random words from a long list (hence the post being sent my way). Second, anything shorthanded with a last name, followed by the word "algorithm" seems pretty cool, especially if it's relatively new (exciting!). 
 
-And third, I loved the idea of rewarding not workable code, put _readable_ code, or in most cases, well-written code comments. "Code readability is the most important pillar of code correctness and maintainability," MacCárthaigh writes. "When code is unreadable, it is harder to spot errors."
+And third, I loved the idea of rewarding _readable_ code and/or well-written comments. "Code readability is the most important pillar of code correctness and maintainability," MacCárthaigh writes. "When code is unreadable, it is harder to spot errors."
 
-So I tried to understand it. 
+I like to learn new things, and I think I'm OK at explaining things once I understand them. So I tried to understand this thing. 
 
 ## What we are up against
 
@@ -49,7 +49,7 @@ uint64_t nearlydivisionless ( uint64_t s ) {
 }
 ```
 
-On first blush, this made no sense to me. Like none. And even if it was in a language I can write I think I'd have still been completely lost. Thankfully, MacCárthaigh reassures:
+On first blush, this made no sense to me. Like none, beyond this is a function called `nearlydivisionless` and it probably takes a 64-it integer called `s` as an argument. Even if it was in a language I can write I think I'd have still been completely lost. Thankfully, MacCárthaigh reassures:
 
 > The second reason I chose Lemire’s algorithm is that it is impenetrable upon first reading. There are lucky few people who are so practiced and conversant in number manipulation that they can see inside of algorithms like Neo in the matrix, but I don’t mean them. To the average reader, myself included, it’s not clear what’s going on and why.
 
@@ -57,15 +57,17 @@ Check!
 
 ## Our starting point, our foothold
 
-As MacCárthaigh notes in his post, he used the contestants' answers to write his own explanation in [a truly wonderful and very long code comment](https://github.com/colmmacc/s2n/blob/7ad9240c8b9ade0cc3a403a732ba9f1289934abd/utils/s2n_random.c#L188). This, rather than anything written by Lemire, was my starting point to understand this thing.
+As MacCárthaigh notes in his post, he used the contestants' answers to write his own explanation in [a truly wonderful and very long code comment](https://github.com/colmmacc/s2n/blob/7ad9240c8b9ade0cc3a403a732ba9f1289934abd/utils/s2n_random.c#L188). This, rather than anything written by Lemire, was my first path forward.
 
-I read MacCárthaigh comment through at least three times, picking up the tiniest bit of new knowledge each time. I got frustrated when it was immediately clear to me what was happening and I got up and did other things. I cursed my curiosity, my lack of CS knowledge... cursed how I understood _just a little bit_ of it. With my attitude settled, I went slow and took each section of the comment in turn.
+I read MacCárthaigh comment through at least three times, picking up the tiniest bit of new knowledge each go-through. I got frustrated when it was immediately clear to me what was happening. I walked away and did other things. But then I'd return, cursing my curiosity, my lack of bedrock computer science knowledge... The fact that I understood _just a little bit_ of it beckoned me back. With my attitude settled, I went slow and took each section of the comment in turn.
 
 I also started throwing some Rust code in a playground, figuring I'd attempt an example of rolling a single 6-sided die as a way to learn.
 
 ## A note about Lemire and Rust
 
-Pretty late into this little project of mine I learned that the main Rust library for generating random number, [Rand](https://github.com/rust-random/rand), apparently [took at least some ideas from Lemire back in 2018 for version 0.5.0](https://www.reddit.com/r/rust/comments/8l95zk/rand_050_released/). So it's not like I'm doing anything novel by implementing this algorithm in Rust. And in fact my ability to read Rust code isn't good enough to find where Lemire's work is used in the library. 
+Pretty late into this little project of mine I learned that the main Rust library for generating random number, [Rand](https://github.com/rust-random/rand), apparently [took at least some ideas from Lemire back in 2018 for version 0.5.0](https://www.reddit.com/r/rust/comments/8l95zk/rand_050_released/) (the Reddit post links to [this Lemire post from 2016](https://lemire.me/blog/2016/06/27/a-fast-alternative-to-the-modulo-reduction/)). Tellingly, my ability to read Rust code isn't good enough to find where Lemire's work is used in the library, or if it's the same as what I did below. Any schooling welcome! 
+
+But sufficient to say: I have no delusions that I'm writing novel or usable Rust code here. Just trying to learn something new.
 
 ## Part 1: Unfair dice
 
@@ -454,15 +456,20 @@ Found 3 outliers among 100 measurements (3.00%)
 
 ## What about readability? 
 
-MacCárthaigh original challenge was to make the algorithm more _readable_. 
+MacCárthaigh original challenge was to make the algorithm more _readable_. And I wouldn't say my code above is any more readable than MacCárthaigh's -- it's almost exactly the same line-by-line, just adapted to Rust.
 
-In thinking about how I might make a more readable implementation, I returned to the structure I used for my first fair (but slow) implementation of Lemire above, which was broken into two functions.
+In thinking about how I might make a more _readable_ implementation, I returned to the structure I used for my first fair (but slow) implementation of Lemire above, which was broken into two functions.
 
 I like two things about splitting it into two functions, an outer and an inner. First, it shows what we might call the "seed rejection" logic clearly: The outer function (`roll_using_readable_lemire`) has the only loop, in which it passes a possible seed to an inner function (`lemire_from_seed`). 
 
 Having this inner function return a Rust `Option` seems like a nice choice for readability here. In Rust, an `Option` can be either `Some` result or `None`, which maps nicely to "you gave me a 'good' seed, so here's the resulting roll result" vs. "you gave me a bad seed, so I'm not returning a roll result" (None).
 
-To be more specific, I decided to have the inner function return `m` or no `m`. This leaves the (simple) work of converting a "good" `m` to a roll result to the outer function. And in the interest of using explicitly named helper functions where possible, I do it with a helper function called `convert_an_m_to_a_roll_result(m)`.
+And the second thing I like about this split version is that it's pretty easy for me to test, since most of the logic lives in a function that doesn't have `rand:random::<u8>()` in it. 
+
+So I tried to take the knowledge and tricks I learned working out `roll_using_lemire_fast`, but put them back into split functions. I also figured I'd separate out the 3 math/computer science tricks Lemire uses to speed up computation into their own "helper" functions, for a total of 5 functions.
+
+Here's what I ended up with:
+
 
 ```rust
 pub fn roll_using_readable_lemire(s: u8) -> u16 {
@@ -514,23 +521,29 @@ fn convert_an_m_to_a_roll_result(m: u16) -> u16 {
 }
 ```
 
+As you can hopefully see, I decided to have the inner function, `lemire_from_seed`, return Some `m` or no `m` using Rust's `Option`. This leaves the (simple) work of converting a "good" `m` to a roll result to the outer function, which I called `roll_using_readable_lemire`. And in the interest of using explicitly named helper functions where possible, I do it with a helper function called `convert_an_m_to_a_roll_result(m)`.
+
+We also gain some ease when it comes to testing. Since `lemire_from_seed` uses whatever seed you give it, you can test it for all possible seeds and see if it produces an equal distribution of roll results (see the `even_distribution` test).
+
+And I was able to break out each of the three "tricks" MacCárthaigh describes into their own, one-liner helper functions, making them easier to read and far easier to test and prove to oneself that they work as described.
+
 I think it came out OK! 
 
-Another thing I like about this split version is that it's pretty easy for me to test. Specifically, since `lemire_from_seed` uses whatever seed you give it, you can test it for all possible seeds and see if it produces an equal distribution of roll results (see the `even_distribution` test).
+As you might guess, this version is a bit slower than the more compact `roll_using_lemire_fast`: Criterion informs that the readable version runs in 8.480 nanoseconds compared to 5.644 nanoseconds. But again, I'm not writing for speed at this point.
 
-As you might guess it is a bit slower than the more compact `roll_using_lemire_fast`: Criterion informs that the readable version runs in 8.480 nanoseconds compared to 5.644 nanoseconds.
+## So do I understand it now?
+
+Honestly, no. I mean, a lot more than I did when I started. But as I write this I still don't quite understand how the `m` and `l` variables work or really what `l` represents even. And I'm confused about how the `floor`  is calculated. But it's a process! (I think I need to read Lemire's writing.) Maybe some of this will help give others one more little foothold on their path to understanding!
 
 ## Further work to do
 
-First, I probably need to double check everything. I'd like to figure out how to write a test to confirm that `roll_using_lemire_fast` is fair. (Maybe a Chi-squared test?)
+First, I probably need to double check everything. More testing of all the functions in `src/lib` would be nice. I'd like to figure out how to write a test to confirm that `roll_using_lemire_fast` is fair. (Maybe a Chi-squared test?)
 
-And obviously my function can only generate random numbers over a max range of 256. Lemire's original example code takes a 64-bit integer for its `s`, which makes the function much more practical and versatile. This requires an `m` of 128 bits, which I'll have to check if Rust can handle? Alternatively I could settle for a 32-bit `s`.
-
-And lastly, returning to MacCárthaigh's original call for readability, I'd love to re-write my Lemire function to be more readable, even at the expensive of speed.
+And obviously my function(s) can only generate random numbers over a max range of 256. Lemire's original example code takes a 64-bit integer for its `s`, which makes the function much more practical and versatile. This requires an `m` of 128 bits, which I'll have to check if Rust can handle? Alternatively I could settle for a 32-bit `s`. Either way, I can't tell if this move would be trivial or devastatingly difficult!
 
 ## Appendix: More sample code
 
-Remember when I split my slow, basic Lemire's into two functions? I wrote a test to make sure it produces an even distribution of dice rolls:
+Here is that first Lemire implementation that I split into two functions, as well as my original test to make sure it produces an even distributions of results:
 
 ```rust
 fn roll_using_lemire_slow(dice_size: usize) -> usize {
@@ -603,5 +616,3 @@ mod tests {
     }
 }
 ```
-
-
