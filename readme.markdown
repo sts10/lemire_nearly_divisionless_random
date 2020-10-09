@@ -57,11 +57,11 @@ Check!
 
 ## A pause to explain what we're trying to do here
 
-Sometimes we need to generate random numbers. Computers can do this, but given how they work, they spit out random numbers on a range from 0 to 2^x. For example, if you happen to want a random number from 0 to 255, computers can get one quickly because 2^8 = 256. But what if we want a random number from 1 to 100? or 0 to 5?
+Sometimes we need to generate random numbers. Computers can do this, but given how they work, they spit out random numbers on a range covering `2^x` numbers. For example, if you happen to want a random number from 0 to 255, computers can get one quickly because 2^8 = 256. But what if we want a random number from 1 to 100? Or 0 to 5?
 
-One way to make this a bit more tangible is imagine if someone gives you a 6-sided die and tells you to generate a random number from 1 to 6. Easy! Roll the die and read it to them! But what if they ask you for a random number between 1 and 4? If you rolled a 5 or 6, you'd have to roll again (basically "rejecting" those results). Having to "reject" some rolls is inevitable, but once the numbers get a little bigger, there are some tricks to make the overall process go a bit faster on computers.
+One way to make this a bit more tangible is imagine if someone handed you a 6-sided die and tells you to generate a random number from 1 to 6. Easy! Roll the die and read it to them! But what if they ask you for a random number between 1 and 4? If you rolled a 5 or 6, you'd have to roll again (basically "rejecting" those results). Having to "reject" some rolls is inevitable, but once the numbers get a little bigger, there are some tricks to make the overall process go a bit faster on computers.
 
-The problem Lemire's code address is taking one of these "fast" random numbers and quickly adapting them to _any_ given range of numbers. 
+The problem Lemire's code address is taking one of these `2^x` random numbers and quickly adapting them to _any_ given range of numbers. 
 
 ## Our starting point, our foothold
 
