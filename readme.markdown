@@ -294,6 +294,8 @@ fn lemire_unfair() {
 
 I don't _quite_ understand why this code over-returns 0, 1, 3 and 4 and under-returns 2 and 5. I'm guessing it's due to how the fractions and rounding works out? 
 
+But we're going to push on.
+
 ### A trick to calculating m a bit faster
 
 Remember: Lemire's nearly divisionless random is all about speed. So there's a few times where he uses some computer science tricks to speed things up. For example, apparently thanks to the nature of u8 integers, dividing a number by 256 can also be done be using a "bit shift" to the right by 8.
@@ -320,11 +322,11 @@ Alright now we're getting dangerous. In [the next section](https://github.com/co
 
 But my understanding is we are basically trying to do the same thing we did before: **make an unfair algorithm fair by figuring out which seed values to reject**. 
 
-My understanding is that we're going to do this by rejecting values that are below a floor (rather than above a ceiling). But what's strange is that we're no longer comparing the seed, straight from the random number generator, to the floor -- instead we're going to compare the floor to a new variable called `l`. Clearly this is part of what is going to make this method nearly divisionless and thus faster than our `traditional_rejection_method`.
+My understanding is that we're going to do this by rejecting values that are below a floor (rather than above a ceiling). But what's strange is that we're no longer comparing the seed, straight from the random number generator, to the floor -- instead we're going to compare the floor to a new variable called `l`. Clearly this is part of what is going to make this method nearly divisionless and thus faster than our `traditional_rejection_method`. But I don't _quite_ understand it enough to give you a paragraph explanation of what `l` is (or how I might rename it to something more helpful!).
 
 For now, I'll paste some code I wrote as I made my way to a final implementation. 
 
-For example, at around this point I wrote an initial attempt at Lemire's, using two functions: an inner function and outer function. 
+For example, at around this point I wrote an initial attempt at a fair Lemire's, using two functions: an inner function and outer function. 
 
 ```rust
 fn lemire_slow(seed: u8, s: usize) -> Option<usize> {
@@ -592,6 +594,8 @@ Honestly, I'd say no. I mean, a lot more than I did when I started. But as I wri
 ## Further work to do
 
 First, I probably need to double-check everything. Adding more tests of all the functions in `src/lib.rs` would be nice. For example, I'd like to figure out how to write a test to confirm that `roll_using_lemire_fast` is fair (currently all the tests only check the readable version). Maybe a Chi-squared test?
+
+Next, I need to better understand how the `l` variable works. I feel like I'm close but not quite there right now! Maybe I could rename it to something more "readable". 
 
 And obviously my function(s) can only generate random numbers over a max range of 256. Lemire's original example code takes a 64-bit integer for its `s`, which makes the function much more practical and versatile. I can't tell if this move would be trivial or devastatingly difficult!
 
