@@ -1,4 +1,5 @@
-use lemire::roll_using_readable_lemire;
+pub mod readable;
+use readable::roll_using_readable_lemire;
 
 fn main() {
     for _n in 0..150 {

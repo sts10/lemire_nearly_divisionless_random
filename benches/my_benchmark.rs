@@ -3,9 +3,12 @@
 extern crate rand;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use lemire::roll_using_lemire_fast;
-use lemire::roll_using_readable_lemire;
 use lemire::roll_using_traditional_rejection_method;
 use rand::distributions::{Distribution, Uniform};
+
+#[path = "../src/readable.rs"]
+pub mod readable;
+use readable::roll_using_readable_lemire;
 
 pub fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("'lemire fast', s = 6", |b| {
