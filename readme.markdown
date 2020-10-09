@@ -288,7 +288,7 @@ fn lemire_unfair() {
     assert_eq!((214 * 6) / 256, 5);
     assert_eq!((255 * 6) / 256, 5);
 
-    // It over-returns 0, 1, 3 and 4, and under-returns 2 and 5
+        // It over-returns 0, 1, 3 and 4, and under-returns 2 and 5
 }
 ```
 
@@ -296,25 +296,26 @@ I don't _quite_ understand why this code over-returns 0, 1, 3 and 4 and under-re
 
 But we're going to push on.
 
-### A trick to calculating m a bit faster
+<!-- ### A trick to calculating m a bit faster -->
 
-Remember: Lemire's nearly divisionless random is all about speed. So there's a few times where he uses some computer science tricks to speed things up. For example, apparently thanks to the nature of u8 integers, dividing a number by 256 can also be done be using a "bit shift" to the right by 8.
+<!-- Remember: Lemire's nearly divisionless random is all about speed. So there's a few times where he uses some computer science tricks to speed things up. 
+For example, apparently thanks to the nature of u8 integers, dividing a number by 256 can also be done be using a "bit shift" to the right by 8. -->
 
-In Rust, [a right shift is represented with >>](https://doc.rust-lang.org/book/appendix-02-operators.html), so right-shifting `m` by 8 `m >> 8`. We can pretty easily check this ourselves for all possible `u16` values by running the following:
+<!-- In Rust, [a right shift is represented with >>](https://doc.rust-lang.org/book/appendix-02-operators.html), so right-shifting `m` by 8 `m >> 8`. We can pretty easily check this ourselves for all possible `u16` values by running the following: -->
 
-```rust
-for possible_m in 0..=u16::MAX {
-    let traditional_method = possible_m / 256;
-    let shortcut_method = possible_m >> 8;
-    assert_eq!(traditional_method, shortcut_method);
-}
-```
+<!-- ```rust -->
+<!-- for possible_m in 0..=u16::MAX { -->
+<!--     let traditional_method = possible_m / 256; -->
+<!--     let shortcut_method = possible_m >> 8; -->
+<!--     assert_eq!(traditional_method, shortcut_method); -->
+<!-- } -->
+<!-- ``` -->
 
-Going forward I'll try to use `m >> 8` in code samples. 
+<!-- Going forward I'll try to use `m >> 8` in code samples. --> 
 
-This little operation is conceptually important because it'll be the very last calculation for us, the one that actually produces the 0 to 5 number that represents our dice roll. (In MacCárthaigh's example, he's using 3-bit numbers, so he uses `m >> 3`.)
+<!-- This little operation is conceptually important because it'll be the very last calculation for us, the one that actually produces the 0 to 5 number that represents our dice roll. (In MacCárthaigh's example, he's using 3-bit numbers, so he uses `m >> 3`.) -->
 
-But no matter how you calculate `m`, our current method is still unfair. 
+<!-- But no matter how you calculate `m`, our current method is still unfair. --> 
 
 ## A fair Lemire's
 
@@ -336,7 +337,7 @@ fn lemire_slow(seed: u8, s: usize) -> Option<usize> {
     let floor = rand_range_length % s; // for us (with s set to 6), this is 4
     if l >= floor {
         // good seed, return the dice roll
-        return Some(m >> 8);
+        return Some(m / 256);
     } else {
         // bad seed
         return None;
@@ -409,11 +410,11 @@ fn roll_using_lemire_fast(s: u8) -> u16 {
             l = m as u8;
         }
     }
-    m >> 8
+    m >> 8 // supposedly faster than m / 256
 }
 ```
 
-### Two new shortcuts
+### Three new shortcuts
 
 As the name of the function implies, `roll_using_lemire_fast` is where I did my best to implement all remaining speed shortcuts described by Lemire and MacCárthaigh.
 
@@ -440,7 +441,25 @@ fn main() {
 }
 ```
 
-But I still don't _quite_ understand how it works, or it actually speeds things up.
+#### Calculating the roll result from m with a faster equivalent to `m /256`
+
+Apparently thanks to the nature of u8 integers, dividing a number by 256 can also be done be using a "bit shift" to the right by 8. -->
+
+In Rust, [a right shift is represented with >>](https://doc.rust-lang.org/book/appendix-02-operators.html), so right-shifting `m` by 8 `m >> 8`. We can pretty easily check this ourselves for all possible `u16` values by running the following:
+
+```rust
+for possible_m in 0..=u16::MAX {
+    let traditional_method = possible_m / 256;
+    let shortcut_method = possible_m >> 8;
+    assert_eq!(traditional_method, shortcut_method);
+}
+```
+
+### Do these shortcuts matter to the Rust compiler?
+
+While all three of these shortcuts may speed up runtime when writing C, in Rust a Mastodon friend contends that only the second one, the one we use to calculate `floor` faster, speeds things up. The other two shortcuts are optimizations that the Rust compiler knows to do for you. 
+
+However, in the nature of good fun, I'm going to leave all three "shortcuts" in the function we'll call `roll_using_lemire_fast`. We'll soon be replacing it with another version that emphasizes readability.
 
 ## Benchmarking
 
@@ -455,8 +474,9 @@ First, I had to learn a little about benchmarking Rust code, something I'd never
 Not gonna lie, did a lot of copy and pasting from [its Getting Started page](https://bheisler.github.io/criterion.rs/book/getting_started.html). But here's what I ended up with in `./benches/my_benchmark.rs`:
 
 ```rust
+extern crate rand;
+use rand::distributions::{Distribution, Uniform};
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use lemire::roll_using_gen_range;
 use lemire::roll_using_lemire_fast;
 use lemire::roll_using_tradional_rejection_method;
 
@@ -466,44 +486,38 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     });
 
     c.bench_function("Traditional rejection method, s=6", |b| {
-        b.iter(|| roll_using_tradional_rejection_method(black_box(6)))
+        b.iter(|| roll_using_traditional_rejection_method(black_box(6)))
     });
 
     c.bench_function("Rand crate, s = 6", |b| {
-        b.iter(|| roll_using_gen_range(black_box(6)))
+        let between = Uniform::from(0..6);
+        let mut rng = rand::thread_rng();
+        b.iter(|| between.sample(&mut rng));
     });
-
 }
 
 criterion_group!(benches, criterion_benchmark);
 criterion_main!(benches);
 ```
 
-I then hastily wrote this in `lib.rs` as a representative of the Rand crate's functionality:
-
-```rust
-pub fn roll_using_gen_range(dice_size: u8) -> u8 {
-    let mut rng = thread_rng();
-    rng.gen_range(0, dice_size - 1)
-}
-```
+Thanks to the same Mastodon friend, I'm decently confident that the above "Rand crate" benchmark is a good one.
 
 ### Benchmark results
 
 Drum roll...
 
 ```text
-'lemire fast', s = 6    time:   [5.3661 ns 5.4143 ns 5.4674 ns]                                  
+'lemire fast', s = 6    time:   [5.3186 ns 5.3510 ns 5.3926 ns]
 
-Rand crate, s = 6       time:   [8.2325 ns 8.2931 ns 8.3596 ns]                               
+Rand crate, s = 6       time:   [5.6401 ns 5.6825 ns 5.7275 ns] 
 
-Traditional rejection method, s=6                        
-                        time:   [6.2933 ns 6.3352 ns 6.3809 ns]
+Traditional rejection method, s=6                                                                             
+                        time:   [6.9322 ns 6.9789 ns 7.0322 ns]
 ```
 
-I was really glad to see "Lemire fast" was the fastest, beating the traditional rejection method by about a nanosecond. All that work paid off! My understanding at this point is that nanosecond is saved by the three shortcuts we implemented, since they work to avoid division, which is computationally expensive.
+First of all, the big proof/win here is that 'Lemire fast' beats the traditional rejection method by roughly 1.6 nanoseconds.
 
-Slowest was my function using the Rand crate's `gen_range` method, which is either because it uses a slower algorithm or the `gen_range` method is much more versatile (it certainly isn't limited to 8-bit integers) and complex, and thus a little slower. But I am just speculating here. 
+In subsequent benchmarks I've run, 'Lemire fast' and the Rand crate are about the same, usually within roughly 0.2 ns. This lends more evidence to the theory that somewhere on the road to version 0.7.3, Rand incorporated this math.
 
 ## What about readability? 
 
@@ -524,11 +538,12 @@ So I tried to take the knowledge and tricks I learned working out `roll_using_le
 Here's what I ended up with:
 
 ```rust
+#[inline]
 pub fn roll_using_readable_lemire(s: u8) -> u16 {
     loop {
         let seed = rand::random::<u8>(); // get a random number from 0..=255
         match lemire_from_seed(seed, s) {
-            // if we get an m value back, that means we had a seed that produced a "good" m
+            // if we get a an m value back, that means we had a seed that produced a "good" m
             // meaning an m we can use to generate a roll result
             Some(m) => return convert_an_m_to_a_roll_result(m),
             // If we're here, we got a bad seed and thus a bad m. No roll result
@@ -539,37 +554,45 @@ pub fn roll_using_readable_lemire(s: u8) -> u16 {
     }
 }
 
-fn lemire_from_seed(seed: u8, s: u8) -> Option<u16> {
-    let m: u16 = seed as u16 * s as u16; // maximum value of m is 255 * s (if s == 6, then max of m is 1,530)
-    let l: u8 = modulo_256(m); // this is a faster alternative to let l = m % 256 (see: https://doc.rust-lang.org/rust-by-example/types/cast.html)
+#[inline]
+pub fn lemire_from_seed(seed: u8, s: u8) -> Option<u16> {
+    let m: u16 = seed as u16 * s as u16;
+    let l: u8 = (m % 256) as u8;
+
+    // This is a shortcut where, if l is greater than s, we know we
+    // definitely have a good `m`
     if l >= s {
         return Some(m);
     }
+    // calculate `floor` using a shortcut for 256 % s
     let floor: u8 = two_fifty_six_modulo(s);
+
     if l < floor {
-        return None;
+        // if this seed we got generates an l that is below the floor,
+        // return no m
+        None
     } else {
-        return Some(m);
+        // but if l is at or above the floor
+        // return this m so it can be used to produce a roll result
+        Some(m)
     }
 }
 
 // comp sci shortcuts
 
-// https://github.com/colmmacc/s2n/blob/7ad9240c8b9ade0cc3a403a732ba9f1289934abd/utils/s2n_random.c#L323-L358
-// In Rust, use casting
-fn modulo_256(m: u16) -> u8 {
-    m as u8
-}
-
 // https://github.com/colmmacc/s2n/blob/7ad9240c8b9ade0cc3a403a732ba9f1289934abd/utils/s2n_random.c#L393-L423
-fn two_fifty_six_modulo(s: u8) -> u8 {
+// This might be the only one, in Rust, that actually speeds up the work
+#[inline]
+pub fn two_fifty_six_modulo(s: u8) -> u8 {
     (u8::MAX - s + 1) % s
 }
 
-// https://github.com/colmmacc/s2n/blob/7ad9240c8b9ade0cc3a403a732ba9f1289934abd/utils/s2n_random.c#L291-L311
-// This is the same as dividing by 256, which, given our constants, is how we convert an m to a result
-fn convert_an_m_to_a_roll_result(m: u16) -> u16 {
-    m >> 8
+// We could use a "shortcut" here ( https://github.com/colmmacc/s2n/blob/7ad9240c8b9ade0cc3a403a732ba9f1289934abd/utils/s2n_random.c#L291-L311)
+// But we think the Rust compiler is smart enough to make this optimization for us
+// I still like the long-named helper function for readability though
+#[inline]
+pub fn convert_an_m_to_a_roll_result(m: u16) -> u16 {
+    m / 256
 }
 ```
 
@@ -579,13 +602,13 @@ As you can hopefully see, I decided to have the inner function, `lemire_from_see
 
 We also gain some ease when it comes to testing. Since `lemire_from_seed` uses whatever seed you give it, you can test it for all possible seeds and see if it produces an equal distribution of roll results (see the `is_distribution_perfectly_even` test in `tests/tests.rb`).
 
-### Shortcuts as helper functions
+### Only using useful shortcuts, and making them their own helper functions
 
-I was also able to break out each of the three shortcuts MacCárthaigh describes into their own, one-line helper functions, making them easier to read and far easier to test and prove to oneself that they work as described, which I also did in `tests/tests.rs` (which is why they're all public functions).
+In this version I decided to only use the one shortcut we think matters in Rust: `(u8::MAX - s + 1) % s` as a replacement for `256 % m`. Though I did make another helper function called `convert_an_m_to_a_roll_result` purely to help readability. Again, isolating these two functions makes them easier to test as well (see: `tests/tests.rs` -- which is why they're all public functions).
 
 I think it came out OK! 
 
-As you might guess, this version is a bit slower than the more compact `roll_using_lemire_fast`, and it's even slower than the traditional rejection method described above: In a fresh benchmark, the readable version runs in 8.480 nanoseconds compared to the more compact version's 5.644 nanoseconds and the traditional method's 6.344 nanoseconds. But again, I'm not writing for speed at this point.
+Delightfully, in the handful of benchmarks I've run so far, `roll_using_readable_lemire` runs just as fast (if not faster?!) than `roll_using_lemire_fast` (roughly 5.8 ns for both). This shows that breaking the process into 4 functions doesn't slow Rust down (which makes sense), and it also shows that two of those shortcuts we forwent in the readable version aren't all that important for speed in Rust.
 
 ## So do I understand Lemire's nearly divisionless random now?
 

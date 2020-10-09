@@ -37,8 +37,8 @@ pub fn roll_using_readable_lemire(s: u8) -> u16 {
 #[inline]
 pub fn lemire_from_seed(seed: u8, s: u8) -> Option<u16> {
     let m: u16 = seed as u16 * s as u16;
-
     let l: u8 = (m % 256) as u8;
+
     // This is a shortcut where, if l is greater than s, we know we
     // definitely have a good `m`
     if l >= s {
@@ -78,7 +78,8 @@ pub fn convert_an_m_to_a_roll_result(m: u16) -> u16 {
 
 // https://github.com/colmmacc/s2n/blob/7ad9240c8b9ade0cc3a403a732ba9f1289934abd/utils/s2n_random.c#L323-L358
 // We also think the Rust compiler is smart enough to do this optimization for us
-// So I'm not going to use this helper function
+// So I'm not going to use this helper function, but I'll keep it here for documentation and
+// testing purposes
 #[inline]
 pub fn modulo_256(m: u16) -> u8 {
     m as u8
@@ -101,20 +102,4 @@ pub fn roll_using_traditional_rejection_method(s: u8) -> u8 {
             continue;
         }
     }
-}
-
-#[inline]
-pub fn roll_using_lemire_only_one_trick(s: u8) -> u16 {
-    let seed = rand::random::<u8>(); // get a random number from 0..=255
-    let m: u16 = seed as u16 * s as u16; // maximum value of m is 255 * s (if s == 6, then max of m is 1,530)
-    let mut l: u8 = (m % 256) as u8;
-    if l < s {
-        let floor: u8 = (u8::MAX - s + 1) % s;
-        while l < floor {
-            let seed = rand::random::<u8>(); // get a random number from 0..=255
-            let m: u16 = seed as u16 * s as u16; // Note that the maximum value of m is 255 * 6 or 1,530
-            l = m as u8;
-        }
-    }
-    m / 256
 }

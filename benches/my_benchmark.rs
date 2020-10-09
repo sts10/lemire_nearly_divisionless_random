@@ -2,13 +2,10 @@
 // https://bheisler.github.io/criterion.rs/book/getting_started.html
 extern crate rand;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-// use lemire::roll_using_gen_range;
 use lemire::roll_using_lemire_fast;
-use lemire::roll_using_lemire_only_one_trick;
 use lemire::roll_using_readable_lemire;
 use lemire::roll_using_traditional_rejection_method;
 use rand::distributions::{Distribution, Uniform};
-// use rand::prelude::*;
 
 pub fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("'lemire fast', s = 6", |b| {
@@ -27,10 +24,6 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
     c.bench_function("Traditional rejection method, s=6", |b| {
         b.iter(|| roll_using_traditional_rejection_method(black_box(6)))
-    });
-
-    c.bench_function("one trick, s = 6", |b| {
-        b.iter(|| roll_using_lemire_only_one_trick(black_box(6)))
     });
 }
 
