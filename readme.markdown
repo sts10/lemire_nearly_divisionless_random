@@ -1,8 +1,8 @@
-# An implementation of Lemire's nearly divisionless random in Rust
+# An exploration of Lemire's nearly divisionless random using Rust
 
-TL;DR As a learning experience, I tried write my own implementation of [Lemire's nearly divisionless random](https://lemire.me/blog/2019/06/06/nearly-divisionless-random-integer-generation-on-various-systems/) in Rust. Currently it's limited to 8-bit integers. 
+TL;DR As a learning experience, I tried write my own implementation of [Lemire's nearly divisionless random](https://lemire.me/blog/2019/06/06/nearly-divisionless-random-integer-generation-on-various-systems/) in Rust. I don't _quite_ understand it as fully as I'd like to yet, but this is where I'm at.
 
-**Do NOT use this code for production!** It's a learning tool, written by an amateur programmer.
+**Do NOT use this code for production!** It's a learning tool, written by an amateur programmer. And for another thing it's limited to 8-bit integers.
 
 ---
 
