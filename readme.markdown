@@ -236,7 +236,11 @@ You can test this function for equal distribution [with this rust Playground](ht
 
 ## Our first attempt at Lemire's algorithm
 
-Alright, at this point MacCárthaigh deems us ready for the new stuff. In [the next section](https://github.com/colmmacc/s2n/blob/7ad9240c8b9ade0cc3a403a732ba9f1289934abd/utils/s2n_random.c#L259-L311) he introduces Lemire's algorithm, but he starts us off with an **unfair** version of it. It's unfair in a way that's similar to our first dice implementation, but a little different. Let's explore!
+Alright, at this point MacCárthaigh deems us ready for the new stuff. In [the next section](https://github.com/colmmacc/s2n/blob/7ad9240c8b9ade0cc3a403a732ba9f1289934abd/utils/s2n_random.c#L259-L311) he introduces Lemire's algorithm, but he starts us off with an **unfair** version of it. It's unfair in a way that's similar to our first dice implementation, but a little different. 
+
+For one thing, this is the first time we meet the new variable `m`, which is set to `seed * s`. This is a crucial aspect of the algorithm, but I'm not sure how to explain it conceptually yet, so I urge you to read MacCárthaigh's comment. 
+
+Anyway, here's the Rust I wrote at this point.
 
 ```rust
 fn lemire_unfair() {
@@ -312,9 +316,11 @@ But no matter how you calculate `m`, our current method is still unfair.
 
 ## A fair Lemire's
 
-Alright now we're getting dangerous. In [the next section](https://github.com/colmmacc/s2n/blob/7ad9240c8b9ade0cc3a403a732ba9f1289934abd/utils/s2n_random.c#L294-L338), MacCárthaigh introduces boats and the `l` variable. I definitely was using pen and graph paper at this point. So for better or worse I'm going to stop narrating along with the comment and more fully encourage you to read it.
+Alright now we're getting dangerous. In [the next section](https://github.com/colmmacc/s2n/blob/7ad9240c8b9ade0cc3a403a732ba9f1289934abd/utils/s2n_random.c#L294-L338), MacCárthaigh introduces "boats" and the `l` variable. I definitely was using pen and graph paper at this point. So for better or worse I'm going to stop narrating along with the comment and more fully encourage you to read it.
 
-But my understanding is we trying to do the same thing we did before: make an unfair algorithm fair by figuring out which seed values to reject. My understanding is that we're going to do this by rejecting values that are below a floor (rather than above a ceiling). But what's strange is that we're no longer comparing the seed, straight from the random number generator, to the floor -- instead we're going to compare the floor to a new variable called `l`.
+But my understanding is we are basically trying to do the same thing we did before: **make an unfair algorithm fair by figuring out which seed values to reject**. 
+
+My understanding is that we're going to do this by rejecting values that are below a floor (rather than above a ceiling). But what's strange is that we're no longer comparing the seed, straight from the random number generator, to the floor -- instead we're going to compare the floor to a new variable called `l`. Clearly this is part of what is going to make this method nearly divisionless and thus faster than our `traditional_rejection_method`.
 
 For now, I'll paste some code I wrote as I made my way to a final implementation. 
 
