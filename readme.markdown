@@ -467,7 +467,7 @@ for possible_m in 0..=u16::MAX {
 
 While all three of these changes to the C code may speed up runtime, in Rust a Mastodon friend contends that only the second one, the one we use to calculate `floor` faster, speeds things up. The other two shortcuts are optimizations that the Rust compiler knows to do for you. 
 
-Of course, we're still getting the "speed up" that Lemire creatively uses -- it's just that we can leave the Rust code as the more readable `m / 256` rather than the more opaque `m >> 8`.
+Of course, we're still getting the "speed up" that Lemire creatively uses -- it's just that we can leave the Rust code as the more readable versions -- `m / 256` rather than the more opaque `m >> 8`.
 
 All that said, in the nature of good fun, I'm going to leave all three "shortcuts" in the function we'll call `roll_using_lemire_fast`. We'll soon be writing a new version that emphasizes readability.
 
