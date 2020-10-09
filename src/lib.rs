@@ -67,12 +67,12 @@ pub fn two_fifty_six_modulo(s: u8) -> u8 {
     (u8::MAX - s + 1) % s
 }
 
-// We could use a "shortcut" here ( https://github.com/colmmacc/s2n/blob/7ad9240c8b9ade0cc3a403a732ba9f1289934abd/utils/s2n_random.c#L291-L311)
+// We could use a "shortcut" here where we use m >> 8 rather than m / 256
+// (see: https://github.com/colmmacc/s2n/blob/7ad9240c8b9ade0cc3a403a732ba9f1289934abd/utils/s2n_random.c#L291-L311)
 // But we think the Rust compiler is smart enough to make this optimization for us
-// I still like the long-named helper function for readability though
+// I still like this long-named helper function for readability though
 #[inline]
 pub fn convert_an_m_to_a_roll_result(m: u16) -> u16 {
-    // m >> 8
     m / 256
 }
 
