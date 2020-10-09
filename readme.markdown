@@ -55,6 +55,14 @@ On first blush, this made no sense to me. Like none, beyond maybe that this is a
 
 Check!
 
+## A pause to explain what we're trying to do here
+
+Sometimes we need to generate random numbers. Computers can do this, but given how they work, they spit out random numbers on a range from 0 to 2^x. For example, if you happen to want a random number from 0 to 255, computers can get one quickly because 2^8 = 256. But what if we want a random number from 1 to 100? or 0 to 5?
+
+One way to make this a bit more tangible is imagine if someone gives you a 6-sided die and tells you to generate a random number from 1 to 6. Easy! Roll the die and read it to them! But what if they ask you for a random number between 1 and 4? If you rolled a 5 or 6, you'd have to roll again (basically "rejecting" those results). Having to "reject" some rolls is inevitable, but once the numbers get a little bigger, there are some tricks to make the overall process go a bit faster on computers.
+
+The problem Lemire's code address is taking one of these "fast" random numbers and quickly adapting them to _any_ given range of numbers. 
+
 ## Our starting point, our foothold
 
 As MacCárthaigh notes in his post, he used the contestants' answers to write his own explanation in [a truly wonderful and very long code comment](https://github.com/colmmacc/s2n/blob/7ad9240c8b9ade0cc3a403a732ba9f1289934abd/utils/s2n_random.c#L188). This, rather than anything written by Lemire, was my first path forward.
@@ -83,11 +91,11 @@ The first thing we'll try is the modulus or remainder operator (`%`). MacCártha
 
 For my 6-sided die example, I would have used 0 through 7 for my large, initial random number (which I'm going to call a "seed" but MacCárthaigh refers to as `x`), but Rust doesn't easily support 3-bit numbers. 
 
-The smallest bit number Rust easily supports is 8 bits (`u8`), which covers a range of 0 to 255. So I used that. In Rust I did this with the rand crate with `let seed_up_to_255 = rand::random::<u8>();`
+The smallest bit number Rust easily supports is 8 bits (`u8`), which covers a range of 0 to 255 (2^8 = 256). So I used that.
 
-IMPORTANT: Given the way bits and computers work, I think computers are very fast at generating random numbers if the range you want it is the length of 2^x. Since 256 = 2^8, generating this initial random number happens very quickly. The problem Lemire's code address is taking one of these "fast" random numbers and quickly adapting them to _any_ given range of numbers.
+(Going back to the tangible example, this is our computational "die" -- it has 256 sides labeled 0 to 255. Our goal is, using only this (massive) die, give a random number from 0 to 5. In Rust, I represented a roll of the 256-side die using the rand crate: `let seed_up_to_255 = rand::random::<u8>();`)
 
-For the dice roll result I decided to start at 0, so it's 0 through 5. 
+Again, we're trying to simulate the roll of a 6-sided die. For this 6-sided result, I decided to start at 0, so it's 0 through 5. 
 
 ```rust
 extern crate rand;
@@ -358,11 +366,11 @@ fn roll_using_lemire_slow(dice_size: usize) -> usize {
 }
 ```
 
-I like this because `lemire_slow` offers a Rust-y visual of when we reject a seed (return None). More on this later!
+I like this because `lemire_slow` offers a Rust-y visualization of when we reject a seed (return None). More on this later!
 
 ## A slightly faster version
 
-Here's what was my next iteration, which puts it all in one function. I also take advantage of the fact that if `l >= s` then we know we definitely have a good `m`. This made sense to me later: It's because we know `floor` (256 % s) is definitely lower than `s`. We take advantage of that shortcut by adding that `if l < s as u16`.
+Here's what was my next iteration, which puts it all in one function. I also take advantage of the fact that if `l >= s` then we know we definitely have a good `m`. This made sense to me later: It's because we know, thanks to how modulus works, that `floor` (256 % s) is definitely lower than `s`. We take advantage of that shortcut by adding that `if l < s as u16`.
 
 Also, since we put everything in one function, we get to do `while l < floor`, which is basically saying: "While l is below the floor, keep getting new seeds until the `l` we calculate from the seed is at or above `floor`.
 
@@ -395,7 +403,7 @@ Nice!
 
 ## And finally, creating a "fast" version, using more shortcuts
 
-At this point I endeavored to translate more of the shortcuts Lemire and MacCárthaigh use from C to Rust. Below is the "fastest" I've gotten the function so far.
+At this point I endeavored to translate more of the shortcuts Lemire and MacCárthaigh use from C to Rust. 
 
 ```rust
 fn roll_using_lemire_fast(s: u8) -> u16 {
@@ -441,9 +449,9 @@ fn main() {
 }
 ```
 
-#### Calculating the roll result from m with a faster equivalent to `m /256`
+#### Calculating the roll result from m with a faster equivalent to `m / 256`
 
-Apparently thanks to the nature of u8 integers, dividing a number by 256 can also be done be using a "bit shift" to the right by 8. -->
+Apparently thanks to the nature of u8 integers, dividing a number by 256 can also be done be using a "bit shift" to the right by 8.
 
 In Rust, [a right shift is represented with >>](https://doc.rust-lang.org/book/appendix-02-operators.html), so right-shifting `m` by 8 `m >> 8`. We can pretty easily check this ourselves for all possible `u16` values by running the following:
 
@@ -457,13 +465,15 @@ for possible_m in 0..=u16::MAX {
 
 ### Do these shortcuts matter to the Rust compiler?
 
-While all three of these shortcuts may speed up runtime when writing C, in Rust a Mastodon friend contends that only the second one, the one we use to calculate `floor` faster, speeds things up. The other two shortcuts are optimizations that the Rust compiler knows to do for you. 
+While all three of these changes to the C code may speed up runtime, in Rust a Mastodon friend contends that only the second one, the one we use to calculate `floor` faster, speeds things up. The other two shortcuts are optimizations that the Rust compiler knows to do for you. 
 
-However, in the nature of good fun, I'm going to leave all three "shortcuts" in the function we'll call `roll_using_lemire_fast`. We'll soon be replacing it with another version that emphasizes readability.
+Of course, we're still getting the "speed up" that Lemire creatively uses -- it's just that we can leave the Rust code as the more readable `m / 256` rather than the more opaque `m >> 8`.
+
+All that said, in the nature of good fun, I'm going to leave all three "shortcuts" in the function we'll call `roll_using_lemire_fast`. We'll soon be writing a new version that emphasizes readability.
 
 ## Benchmarking
 
-Time for the true test: Seeing if my beautifully named `roll_using_lemire_fast` function was fast. 
+Time for the true test: Seeing if my beautifully named `roll_using_lemire_fast` function is faster than the "traditional" rejection method. 
 
 To test it, I figured I'd benchmark it against (a) that "traditional" rejection method we described above and, more for fun, (b) [Rust's Rand library](https://github.com/rust-random/rand). (Though, as noted above, it's unclear to me if the Rand crate already incorporates which of Lemire's ideas.)
 
@@ -500,11 +510,11 @@ criterion_group!(benches, criterion_benchmark);
 criterion_main!(benches);
 ```
 
-Thanks to the same Mastodon friend, I'm decently confident that the above "Rand crate" benchmark is a good one.
+Thanks to the same Mastodon friend, I used [Rand's Uniform struct](https://docs.rs/rand/0.7.3/rand/distributions/uniform/struct.Uniform.html) for the benchmark comparison, which I'm decently confident is a fair implementation for competition.
 
 ### Benchmark results
 
-Drum roll...
+Drum (dice?) roll...
 
 ```text
 'lemire fast', s = 6    time:   [5.3186 ns 5.3510 ns 5.3926 ns]
@@ -533,7 +543,7 @@ Having this inner function return a Rust `Option` seems like a nice choice for r
 
 And the second thing I like about this split version is that it's pretty easy for me to test, since most of the logic lives in a function that doesn't have `rand:random::<u8>()` in it (the inner one).
 
-So I tried to take the knowledge and tricks I learned working out `roll_using_lemire_fast` and put them back into split functions. I also figured I'd separate out the 3 math/computer science tricks Lemire uses to speed up computation into their own "helper" functions, for a total of 5 functions.
+So I tried to take the knowledge and tricks I learned working out `roll_using_lemire_fast` and put them back into split functions. Though I only carried over one of those three computer science tricks, since we think they can be written in the more readable way and the Rust compiler will make the optimizations for us. 
 
 Here's what I ended up with:
 
@@ -604,7 +614,7 @@ We also gain some ease when it comes to testing. Since `lemire_from_seed` uses w
 
 ### Only using useful shortcuts, and making them their own helper functions
 
-In this version I decided to only use the one shortcut we think matters in Rust: `(u8::MAX - s + 1) % s` as a replacement for `256 % m`. Though I did make another helper function called `convert_an_m_to_a_roll_result` purely to help readability. Again, isolating these two functions makes them easier to test as well (see: `tests/tests.rs` -- which is why they're all public functions).
+In this version I decided to only use the one shortcut we think matters in Rust: `(u8::MAX - s + 1) % s` as a replacement for `256 % m`. I made another helper function called `convert_an_m_to_a_roll_result` purely to help readability. Again, isolating these two functions makes them easier to test as well (see: `tests/tests.rs` -- which is why they're all public functions).
 
 I think it came out OK! 
 
