@@ -11,21 +11,22 @@ pub mod readable;
 use readable::roll_using_readable_lemire;
 
 pub fn criterion_benchmark(c: &mut Criterion) {
-    c.bench_function("'lemire fast', s = 6", |b| {
+    let mut group = c.benchmark_group("Roll die");
+    group.bench_function("'Lemire fast'", |b| {
         b.iter(|| roll_using_lemire_fast(black_box(6)))
     });
 
-    c.bench_function("Lemire readable, s = 6", |b| {
+    group.bench_function("Lemire readable", |b| {
         b.iter(|| roll_using_readable_lemire(black_box(6)))
     });
 
-    c.bench_function("Rand crate, s = 6", |b| {
+    group.bench_function("Rand crate", |b| {
         let between = Uniform::from(0..6);
         let mut rng = rand::thread_rng();
         b.iter(|| between.sample(&mut rng));
     });
 
-    c.bench_function("Traditional rejection method, s=6", |b| {
+    group.bench_function("Traditional rejection method", |b| {
         b.iter(|| roll_using_traditional_rejection_method(black_box(6)))
     });
 }

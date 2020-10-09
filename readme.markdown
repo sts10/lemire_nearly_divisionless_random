@@ -484,25 +484,27 @@ First, I had to learn a little about benchmarking Rust code, something I'd never
 Not gonna lie, did a lot of copy and pasting from [its Getting Started page](https://bheisler.github.io/criterion.rs/book/getting_started.html). But here's what I ended up with in `./benches/my_benchmark.rs`:
 
 ```rust
+
 extern crate rand;
-use rand::distributions::{Distribution, Uniform};
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use lemire::roll_using_lemire_fast;
-use lemire::roll_using_tradional_rejection_method;
+use lemire::roll_using_traditional_rejection_method;
+use rand::distributions::{Distribution, Uniform};
 
 pub fn criterion_benchmark(c: &mut Criterion) {
-    c.bench_function("'lemire fast', s = 6", |b| {
+    let mut group = c.benchmark_group("Roll die");
+    group.bench_function("'Lemire fast'", |b| {
         b.iter(|| roll_using_lemire_fast(black_box(6)))
     });
 
-    c.bench_function("Traditional rejection method, s=6", |b| {
-        b.iter(|| roll_using_traditional_rejection_method(black_box(6)))
-    });
-
-    c.bench_function("Rand crate, s = 6", |b| {
+    group.bench_function("Rand crate", |b| {
         let between = Uniform::from(0..6);
         let mut rng = rand::thread_rng();
         b.iter(|| between.sample(&mut rng));
+    });
+
+    group.bench_function("Traditional rejection method", |b| {
+        b.iter(|| roll_using_traditional_rejection_method(black_box(6)))
     });
 }
 
@@ -517,15 +519,16 @@ Thanks to the same Mastodon friend, I used [Rand's Uniform struct](https://docs.
 Drum (dice?) roll...
 
 ```text
-'lemire fast', s = 6    time:   [5.3186 ns 5.3510 ns 5.3926 ns]
 
-Rand crate, s = 6       time:   [5.6401 ns 5.6825 ns 5.7275 ns] 
-
-Traditional rejection method, s=6                                                                             
-                        time:   [6.9322 ns 6.9789 ns 7.0322 ns]
+Roll die/'Lemire fast'  
+    time:   [5.8400 ns 5.9288 ns 6.0354 ns]
+Roll die/Rand crate     
+    time:   [5.5302 ns 5.5996 ns 5.6808 ns]
+Roll die/Traditional rejection method
+    time:   [6.3593 ns 6.4435 ns 6.5447 ns]
 ```
 
-First of all, the big proof/win here is that 'Lemire fast' beats the traditional rejection method by roughly 1.6 nanoseconds.
+First of all, the big proof/win here is that 'Lemire fast' beats the traditional rejection method by roughly half a nanosecond (it fluctuates up to 1.5 ns).
 
 In subsequent benchmarks I've run, 'Lemire fast' and the Rand crate are about the same, usually within roughly 0.2 ns. This lends more evidence to the theory that somewhere on the road to version 0.7.3, Rand incorporated this math.
 
@@ -545,9 +548,10 @@ And the second thing I like about this split version is that it's pretty easy fo
 
 So I tried to take the knowledge and tricks I learned working out `roll_using_lemire_fast` and put them back into split functions. Though I only carried over one of those three computer science tricks, since we think they can be written in the more readable way and the Rust compiler will make the optimizations for us. 
 
-Here's what I ended up with:
+Here's what I ended up with (it's in it's own module in `src/readable.rs`):
 
 ```rust
+// This is the 'outer', public function of this module.
 #[inline]
 pub fn roll_using_readable_lemire(s: u8) -> u16 {
     loop {
@@ -565,11 +569,11 @@ pub fn roll_using_readable_lemire(s: u8) -> u16 {
 }
 
 #[inline]
-pub fn lemire_from_seed(seed: u8, s: u8) -> Option<u16> {
+fn lemire_from_seed(seed: u8, s: u8) -> Option<u16> {
     let m: u16 = seed as u16 * s as u16;
     let l: u8 = (m % 256) as u8;
 
-    // This is a shortcut where, if l is greater than s, we know we
+    // This is a crucial shortcut where, if l is greater than s, we know we
     // definitely have a good `m`
     if l >= s {
         return Some(m);
@@ -588,20 +592,21 @@ pub fn lemire_from_seed(seed: u8, s: u8) -> Option<u16> {
     }
 }
 
-// comp sci shortcuts
+// Helper functions and comp sci shortcuts
 
+// Faster equivalent to 256 % m
 // https://github.com/colmmacc/s2n/blob/7ad9240c8b9ade0cc3a403a732ba9f1289934abd/utils/s2n_random.c#L393-L423
-// This might be the only one, in Rust, that actually speeds up the work
 #[inline]
-pub fn two_fifty_six_modulo(s: u8) -> u8 {
+fn two_fifty_six_modulo(s: u8) -> u8 {
     (u8::MAX - s + 1) % s
 }
 
-// We could use a "shortcut" here ( https://github.com/colmmacc/s2n/blob/7ad9240c8b9ade0cc3a403a732ba9f1289934abd/utils/s2n_random.c#L291-L311)
+// We could use a "shortcut" here where we use m >> 8 rather than m / 256
+// (see: https://github.com/colmmacc/s2n/blob/7ad9240c8b9ade0cc3a403a732ba9f1289934abd/utils/s2n_random.c#L291-L311)
 // But we think the Rust compiler is smart enough to make this optimization for us
-// I still like the long-named helper function for readability though
+// I still like this long-named helper function for readability though
 #[inline]
-pub fn convert_an_m_to_a_roll_result(m: u16) -> u16 {
+fn convert_an_m_to_a_roll_result(m: u16) -> u16 {
     m / 256
 }
 ```
@@ -610,11 +615,13 @@ As you can hopefully see, I decided to have the inner function, `lemire_from_see
 
 ### Easier testing
 
-We also gain some ease when it comes to testing. Since `lemire_from_seed` uses whatever seed you give it, you can test it for all possible seeds and see if it produces an equal distribution of roll results (see the `is_distribution_perfectly_even` test in `tests/tests.rb`).
+We also gain some ease when it comes to testing. Since `lemire_from_seed` uses whatever seed you give it, you can test it for all possible seeds and see if it produces an equal distribution of roll results (see the `is_distribution_perfectly_even` test in the same `src/readable.rs` file).
 
 ### Only using useful shortcuts, and making them their own helper functions
 
-In this version I decided to only use the one shortcut we think matters in Rust: `(u8::MAX - s + 1) % s` as a replacement for `256 % m`. I made another helper function called `convert_an_m_to_a_roll_result` purely to help readability. Again, isolating these two functions makes them easier to test as well (see: `tests/tests.rs` -- which is why they're all public functions).
+While, thanks to the Rust compiler, I'm still taking advantage of the three shortcuts we've gone over, in this more readable version I decided to only "code-out" the one that we think you need to code-out in Rust: `(u8::MAX - s + 1) % s` as a replacement for `256 % m`. 
+
+I made another helper function called `convert_an_m_to_a_roll_result` purely to help readability. Again, isolating these two functions makes them easier to test.
 
 I think it came out OK! 
 
