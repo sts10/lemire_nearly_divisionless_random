@@ -473,10 +473,9 @@ To test it, I figured I'd benchmark it against (a) that "traditional" rejection 
 
 First, I had to learn a little about benchmarking Rust code, something I'd never _formally_ done before. After a few search queries, I decided to use a crate called [Criterion](https://github.com/bheisler/criterion.rs).
 
-Not gonna lie, did a lot of copy and pasting from [its Getting Started page](https://bheisler.github.io/criterion.rs/book/getting_started.html). But here's what I ended up with in `./benches/my_benchmark.rs`:
+Not gonna lie, did a lot of copy and pasting from [its Getting Started page](https://bheisler.github.io/criterion.rs/book/getting_started.html). But here's what I ended up with in `./benches/nearly_divisionless_random_benches.rs`:
 
 ```rust
-
 extern crate rand;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use lemire::roll_using_lemire_fast;
@@ -508,10 +507,9 @@ Thanks to the same Mastodon friend, I used [Rand's Uniform struct](https://docs.
 
 ### Benchmark results
 
-Drum (dice?) roll...
+Drum (dice?) roll (`cargo bench`)...
 
 ```text
-
 Roll die/'Lemire fast'  
     time:   [5.8400 ns 5.9288 ns 6.0354 ns]
 Roll die/Rand crate     
@@ -523,6 +521,14 @@ Roll die/Traditional rejection method
 First of all, the big proof/win here is that 'Lemire fast' beats the traditional rejection method by roughly half a nanosecond (it fluctuates up to 1.5 ns).
 
 In subsequent benchmarks I've run, 'Lemire fast' and the Rand crate are about the same, usually within roughly 0.2 ns. This lends more evidence to the theory that somewhere on the road to version 0.7.3, Rand incorporated this math.
+
+### Benchmarking the various shortcuts against their more traditional versions
+
+As I did more thinking about the three shortcuts I've written about here, I decided to try to benchmark them on their own, in a separate file. I've tried to do this in `benches/shortcut_benches.rs`. 
+
+Unfortunately, each time I run `cargo bench` for these benchmarks it seems I get a slightly different results. Sometimes the short cut methods are faster, other times the more traditionally written Rust code wins. 
+
+One thing that is for sure is that any difference is _at most_ 30 picoseconds (0.00000000003 seconds), so we're getting pretty in the weeds here.
 
 ## What about readability? 
 

@@ -13,5 +13,9 @@ rand = "0.7"
 criterion = "0.3"
 
 [[bench]]
-name = "my_benchmark"
+name = "nearly_divisionless_random_benches"
+harness = false
+
+[[bench]]
+name = "shortcut_benches"
 harness = false

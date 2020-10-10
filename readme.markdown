@@ -14,7 +14,7 @@ To run these, you'll need to have [Rust and `cargo` installed](https://www.rust-
 
 - `src/readable.rs` is a Rust module that contains that 4 functions that, together, make up what I think is **my best implementation** of Lemire's nearly divisionless random, which prioritizes _readability_. (This file also contains 4 unit tests, which you can run with `cargo test`.)
 - `src/lib.rs` has an implementation closer to Lemire's C version, as well as a more "traditional" solution to the problem.
-- `benches/` directory contains the benchmarks, written using the [Criterion crate](https://docs.rs/criterion/0.3.3/criterion/). You can run them with `cargo bench`.
+- `benches/` directory contains the benchmarks, written using the [Criterion crate](https://docs.rs/criterion/0.3.3/criterion/). `benches/nearly_divisionless_random_benches.rs` contains the actual algorithm benchmarks, while `benches/shortcut_benches.rs` just tests 3 specific shortcuts Lemire uses. You can run them with `cargo bench`.
 - `src/main.rs` is a simple example of how you'd use my "readable" implementation. You can run it with `cargo run`.
 
 
